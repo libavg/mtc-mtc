@@ -11,12 +11,6 @@
     <image x="166" y="32" href="images/CamImgBorder.png"/>
     <image id="nohistory" x="168" y="34" width="160" height="120"/>
     
-<!--
-    <words x="332" y="13" text="highpass" size="16" font="Eurostile"/>
-    <image x="332" y="32" href="images/CamImgBorder.png"/>
-    <image id="highpass" x="334" y="34" width="160" height="120"/>
--->
-
     <image x="332" y="32" href="images/CamImgBorder.png"/>
     <image id="histogram" x="334" y="34" width="160" height="120"/>
   </div>
