@@ -21,9 +21,14 @@ class Calibrator:
             {'Name':"exposure", 'min':7, 'max':62, 'increment':1},
             {'Name':"shutter", 'min':1, 'max':533, 'increment':1},
             {'Name':"gain", 'min':16, 'max':64, 'increment':1},
-            {'Name':"trapezoid", 'min':0, 'max':1, 'increment':0.01}
+            {'Name':"trapezoid", 'min':0, 'max':1, 'increment':0.01},
+            {'Name':"L", 'min':0, 'max':320, 'increment':1},
+            {'Name':"T", 'min':0, 'max':240, 'increment':1},
+            {'Name':"R", 'min':320, 'max':640, 'increment':1},
+            {'Name':"B", 'min':240, 'max':480, 'increment':1}
         ]
         self.__curParam = 0
+        self.__saveIndex = 0
     def __updateBitmap(self, ImgName, ID):
         Bitmap = self.__Tracker.getImage(ID)
         Node = gPlayer.getElementByID(ImgName)
@@ -32,8 +37,14 @@ class Calibrator:
             Node.width=Bitmap.getSize()[0]/4
             Node.height=Bitmap.getSize()[1]/4
         else:
-            Node.width=1280
-            Node.height=960
+            w = gTracker.right-gTracker.left
+            h = gTracker.bottom - gTracker.top
+            XPixelSize = 1280/w
+            YPixelSize = 960/h
+            Node.x = -XPixelSize*gTracker.left
+            Node.y = -YPixelSize*gTracker.top
+            Node.width=XPixelSize*w
+            Node.height=YPixelSize*h
     def __getParam(self, Name):
         if Name == "threshold":
             return gTracker.threshold
@@ -47,6 +58,14 @@ class Calibrator:
             return gTracker.gain
         elif Name == "trapezoid":
             return gTracker.trapezoid
+        elif Name == "L":
+            return gTracker.left
+        elif Name == "T":
+            return gTracker.top
+        elif Name == "R":
+            return gTracker.right
+        elif Name == "B":
+            return gTracker.bottom
         else:
             print "getParam broken"
     def __setParam(self, Name, Val):
@@ -62,6 +81,14 @@ class Calibrator:
             gTracker.gain = Val
         elif Name == "trapezoid":
             gTracker.trapezoid = Val
+        elif Name == "L":
+            gTracker.left = Val;
+        elif Name == "T":
+            gTracker.top = Val;
+        elif Name == "R":
+            gTracker.right = Val;
+        elif Name == "B":
+            gTracker.bottom = Val;
         else:
             print "setParam broken"
     def __displayParams(self):
@@ -118,6 +145,16 @@ class Calibrator:
             self.__changeParam(-10)
         elif Event.keystring == "page down":
             self.__changeParam(10)
+        elif Event.keystring == "h":
+            gTracker.resetHistory()
+            print "History reset"
+        elif Event.keystring == "s":
+            gTracker.saveConfig()
+            print ("Tracker configuration saved.")
+        elif Event.keystring == "w":
+            self.__saveIndex += 1
+            gTracker.getImage(avg.IMG_NOHISTORY).save("img"+str(self.__saveIndex)+".png")
+            print ("Image saved.")
         else:
             print "Unknown key ", Event.keystring
         self.__displayParams()
