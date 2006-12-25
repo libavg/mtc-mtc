@@ -45,15 +45,8 @@ class Calibrator:
             Node.width=Bitmap.getSize()[0]/4
             Node.height=Bitmap.getSize()[1]/4
         else:
-            w = gTracker.right-gTracker.left
-            h = gTracker.bottom - gTracker.top
-            XPixelSize = 1280/w
-            YPixelSize = 960/h
-            Node.width=XPixelSize*640
-            Node.height=YPixelSize*480
-            Node.y = 960-Node.height
-            Node.x = 1280-Node.width 
-            print "(", Node.x, ",", Node.y, "), (", Node.width, ",", Node.height, ")"
+            Node.width = 1280
+            Node.height = 720
         self.__flipBitmap(ImgName)
     def __getParam(self, Name):
         return getattr(gTracker, Name)
