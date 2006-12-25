@@ -16,21 +16,28 @@ class Calibrator:
         self.__isActive = False
         self.__Tracker = Tracker
         self.__ParamList = [
-            {'Name':"threshold", 'min':1, 'max':255, 'increment':1},
-            {'Name':"brightness", 'min':1, 'max':255, 'increment':1},
-            {'Name':"exposure", 'min':7, 'max':62, 'increment':1},
-            {'Name':"shutter", 'min':1, 'max':533, 'increment':1},
-            {'Name':"gain", 'min':16, 'max':64, 'increment':1},
-            {'Name':"trapezoid", 'min':0, 'max':1, 'increment':0.01},
-            {'Name':"left", 'min':0, 'max':320, 'increment':1},
-            {'Name':"top", 'min':0, 'max':240, 'increment':1},
-            {'Name':"right", 'min':320, 'max':640, 'increment':1},
-            {'Name':"bottom", 'min':240, 'max':480, 'increment':1}
+            {'Name':"threshold", 'min':1, 'max':255, 'increment':1, 'precision':0},
+            {'Name':"brightness", 'min':1, 'max':255, 'increment':1, 'precision':0},
+            {'Name':"gamma", 'min':0, 'max':1, 'increment':1, 'precision':0},
+            {'Name':"shutter", 'min':1, 'max':533, 'increment':1, 'precision':0},
+            {'Name':"gain", 'min':16, 'max':64, 'increment':1, 'precision':0},
+            {'Name':"trapezoid", 'min':0, 'max':1, 'increment':0.01, 'precision':2},
+            {'Name':"left", 'min':0, 'max':320, 'increment':1, 'precision':0},
+            {'Name':"top", 'min':0, 'max':240, 'increment':1, 'precision':0},
+            {'Name':"right", 'min':320, 'max':640, 'increment':1, 'precision':0},
+            {'Name':"bottom", 'min':240, 'max':480, 'increment':1, 'precision':0}
         ]
         self.__curParam = 0
         self.__saveIndex = 0
-    def __updateBitmap(self, ImgName, ID):
-        Bitmap = self.__Tracker.getImage(ID)
+    def __flipBitmap(self, ImgName):
+        Node = gPlayer.getElementByID(ImgName)
+        for y in range(Node.getNumVerticesY()):
+            for x in range(Node.getNumVerticesX()):
+                pos = Node.getOrigVertexCoord(x,y)
+                pos.y = 1-pos.y
+                Node.setWarpedVertexCoord(x,y,pos)
+    def __updateBitmap(self, ImgName, TrackerID):
+        Bitmap = self.__Tracker.getImage(TrackerID)
         Node = gPlayer.getElementByID(ImgName)
         Node.setBitmap(Bitmap)
         if ImgName != "fingers":
@@ -45,6 +52,7 @@ class Calibrator:
             Node.y = -YPixelSize*gTracker.top
             Node.width=XPixelSize*w
             Node.height=YPixelSize*h
+        self.__flipBitmap(ImgName)
     def __getParam(self, Name):
         return getattr(gTracker, Name)
     def __setParam(self, Name, Val):
@@ -55,7 +63,7 @@ class Calibrator:
             Node = gPlayer.getElementByID("param"+str(i))
             Name = Param['Name']
             Val = self.__getParam(Name)
-            Node.text = Param['Name']+": "+str(Val)
+            Node.text = Param['Name']+": "+('%(val).'+str(Param['precision'])+'f') % {'val': Val}
             if self.__curParam == i:
                 Node.color = "FFFFFF"
             else:
@@ -71,10 +79,11 @@ class Calibrator:
             Val = curParam['max']
         self.__setParam(curParam['Name'], Val)
     def onFrame(self):
-        self.__updateBitmap("camera", avg.IMG_CAMERA);
-        self.__updateBitmap("nohistory", avg.IMG_NOHISTORY);
-        self.__updateBitmap("histogram", avg.IMG_HISTOGRAM);
-        self.__updateBitmap("fingers", avg.IMG_FINGERS);
+        self.__updateBitmap("camera", avg.IMG_CAMERA)
+        self.__updateBitmap("distorted", avg.IMG_DISTORTED)
+        self.__updateBitmap("nohistory", avg.IMG_NOHISTORY)
+        self.__updateBitmap("histogram", avg.IMG_HISTOGRAM)
+        self.__updateBitmap("fingers", avg.IMG_FINGERS)
     def switchActive(self):
         if self.__isActive:
             self.__isActive = False

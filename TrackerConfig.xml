@@ -5,6 +5,7 @@
  <ROI tlx="0" tly="54" brx="640" bry="480"/>
  <brightness value="1"/>
  <exposure value="62"/>
+ <gamma value="0"/>
  <gain value="16"/>
  <shutter value="237"/>
  <threshold value="131"/>
