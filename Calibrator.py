@@ -132,6 +132,12 @@ def onKeyUp():
     elif gCalibrator.isActive():
         gCalibrator.onKeyUp(Event)
 
+def onTouchDown():
+    Event = gPlayer.getCurEvent()
+    Node = gPlayer.getElementByID("cursor") 
+    Node.x = Event.x-8
+    Node.y = Event.y-8
+
 gPlayer = avg.Player()
 Log = avg.Logger.get()
 bDebug = not(os.getenv('AVG_DEPLOY'))
@@ -144,11 +150,11 @@ Log.setCategories(Log.APP |
                   Log.WARNING | 
                   Log.PROFILE |
 #                 Log.PROFILE_LATEFRAMES |
-                  Log.CONFIG  
+                  Log.CONFIG |  
 #                 Log.MEMORY  |
 #                 Log.BLTS    
-#                  Log.EVENTS |
-#                  Log.EVENTS2
+                  Log.EVENTS |
+                  Log.EVENTS2
                  )
 gPlayer.loadFile("calibrator.avg")
 anim.init(gPlayer)
