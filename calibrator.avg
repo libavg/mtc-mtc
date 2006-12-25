@@ -1,18 +1,18 @@
 <?xml version="1.0"?>
 <!DOCTYPE avg SYSTEM "../../doc/avg.dtd">
 <avg width="1280" height="720" onkeyup="onKeyUp">
-  <image id="fingers" x="0" y="0" width="1280" height="960" opacity="0"/>
-  <div id="tracking" x="300" y="0" opacity="0">
+  <image id="fingers" x="0" y="0" width="1280" height="960" opacity="0" angle="3.1415"/>
+  <div id="tracking" x="300" y="32" opacity="0">
     <words x="0" y="13" text="camera" size="16" font="Eurostile"/>
     <image x="0" y="32" href="images/CamImgBorder.png"/>
-    <image id="camera" x="2" y="34" width="160" height="120"/>
     
     <words x="166" y="13" text="history, distort" size="16" font="Eurostile"/>
     <image x="166" y="32" href="images/CamImgBorder.png"/>
-    <image id="nohistory" x="168" y="34" width="160" height="120"/>
+    <image id="nohistory" x="168" y="34" width="160" height="120" angle="3.1415"/>
     
     <image x="332" y="32" href="images/CamImgBorder.png"/>
-    <image id="histogram" x="334" y="34" width="160" height="120"/>
+    <image id="histogram" x="334" y="34" width="160" height="120" angle="3.1415"/>
+    <image id="camera" x="2" y="34" width="160" height="120" angle="3.1415"/>
 
     <words id="param0" x="0" y="162" size="13" font="Eurostile"/> 
     <words id="param1" x="0" y="178" size="13" font="Eurostile"/> 
@@ -22,9 +22,9 @@
     <words id="param5" x="166" y="194" size="13" font="Eurostile"/> 
     <words x="332" y="162" size="13" font="Eurostile" text="ROI" color="A0A0FF"/>
     <words id="param6" x="348" y="178" size="13" font="Eurostile"/> 
-    <words id="param7" x="398" y="178" size="13" font="Eurostile"/> 
+    <words id="param7" x="418" y="178" size="13" font="Eurostile"/> 
     <words id="param8" x="348" y="194" size="13" font="Eurostile"/> 
-    <words id="param9" x="398" y="194" size="13" font="Eurostile"/> 
+    <words id="param9" x="418" y="194" size="13" font="Eurostile"/> 
   </div>
 </avg>
 

@@ -22,10 +22,10 @@ class Calibrator:
             {'Name':"shutter", 'min':1, 'max':533, 'increment':1},
             {'Name':"gain", 'min':16, 'max':64, 'increment':1},
             {'Name':"trapezoid", 'min':0, 'max':1, 'increment':0.01},
-            {'Name':"L", 'min':0, 'max':320, 'increment':1},
-            {'Name':"T", 'min':0, 'max':240, 'increment':1},
-            {'Name':"R", 'min':320, 'max':640, 'increment':1},
-            {'Name':"B", 'min':240, 'max':480, 'increment':1}
+            {'Name':"left", 'min':0, 'max':320, 'increment':1},
+            {'Name':"top", 'min':0, 'max':240, 'increment':1},
+            {'Name':"right", 'min':320, 'max':640, 'increment':1},
+            {'Name':"bottom", 'min':240, 'max':480, 'increment':1}
         ]
         self.__curParam = 0
         self.__saveIndex = 0
@@ -46,51 +46,9 @@ class Calibrator:
             Node.width=XPixelSize*w
             Node.height=YPixelSize*h
     def __getParam(self, Name):
-        if Name == "threshold":
-            return gTracker.threshold
-        elif Name == "brightness":
-            return gTracker.brightness
-        elif Name == "exposure":
-            return gTracker.exposure
-        elif Name == "shutter":
-            return gTracker.shutter
-        elif Name == "gain":
-            return gTracker.gain
-        elif Name == "trapezoid":
-            return gTracker.trapezoid
-        elif Name == "L":
-            return gTracker.left
-        elif Name == "T":
-            return gTracker.top
-        elif Name == "R":
-            return gTracker.right
-        elif Name == "B":
-            return gTracker.bottom
-        else:
-            print "getParam broken"
+        return getattr(gTracker, Name)
     def __setParam(self, Name, Val):
-        if Name == "threshold":
-            gTracker.threshold = Val
-        elif Name == "brightness":
-            gTracker.brightness = Val
-        elif Name == "exposure":
-            gTracker.exposure = Val
-        elif Name == "shutter":
-            gTracker.shutter = Val
-        elif Name == "gain":
-            gTracker.gain = Val
-        elif Name == "trapezoid":
-            gTracker.trapezoid = Val
-        elif Name == "L":
-            gTracker.left = Val;
-        elif Name == "T":
-            gTracker.top = Val;
-        elif Name == "R":
-            gTracker.right = Val;
-        elif Name == "B":
-            gTracker.bottom = Val;
-        else:
-            print "setParam broken"
+        setattr(gTracker, Name, Val)
     def __displayParams(self):
         i = 0
         for Param in self.__ParamList:
@@ -191,7 +149,7 @@ Log.setCategories(Log.APP |
 gPlayer.loadFile("calibrator.avg")
 anim.init(gPlayer)
 gPlayer.setVBlankFramerate(1)
-gTracker = gPlayer.addTracker("/dev/video1394/0", 30, "640x480_MONO8")
+gTracker = gPlayer.addTracker("/dev/video1394/0", 60, "640x480_MONO8")
 gCalibrator = Calibrator(gTracker)
 gPlayer.play()
 

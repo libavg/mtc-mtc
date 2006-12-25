@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <trackerconfig>
- <barrel value="0.36"/>
- <trapezoid value="0"/>
- <ROI tlx="0" tly="0" brx="640" bry="480"/>
- <brightness value="103"/>
- <exposure value="139"/>
- <gain value="19"/>
- <shutter value="27"/>
+ <barrel value="0.6"/>
+ <trapezoid value="0.23"/>
+ <ROI tlx="0" tly="54" brx="640" bry="480"/>
+ <brightness value="123"/>
+ <exposure value="62"/>
+ <gain value="45"/>
+ <shutter value="67"/>
  <threshold value="131"/>
  <historyupdateinterval value="25"/>
- <similarity value="31"/>
- <areabounds min="80" max="450"/>
- <eccentricitybounds min="1" max="3"/>
+ <similarity value="10"/>
+ <areabounds min="6" max="60"/>
+ <eccentricitybounds min="1" max="8"/>
  <debug value="1"/>
 </trackerconfig>
