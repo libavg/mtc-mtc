@@ -23,11 +23,14 @@ class Calibrator:
             {'Name':"gain", 'min':16, 'max':64, 'increment':1, 'precision':0},
             {'Name':"trapezoid", 'min':0, 'max':1, 'increment':0.01, 'precision':2},
             {'Name':"barrel", 'min':0, 'max':2, 'increment':0.01, 'precision':2},
-            {'Name':"left", 'min':0, 'max':320, 'increment':1, 'precision':0},
-            {'Name':"top", 'min':0, 'max':240, 'increment':1, 'precision':0},
-            {'Name':"right", 'min':320, 'max':640, 'increment':1, 'precision':0},
-            {'Name':"bottom", 'min':240, 'max':480, 'increment':1, 'precision':0}
+            {'Name':"left", 'id':"roileft", 'min':0, 'max':320, 'increment':1, 'precision':0},
+            {'Name':"top", 'id':"roitop", 'min':0, 'max':240, 'increment':1, 'precision':0},
+            {'Name':"right", 'id':"roiright", 'min':320, 'max':640, 'increment':1, 'precision':0},
+            {'Name':"bottom", 'id':"roibottom", 'min':240, 'max':480, 'increment':1, 'precision':0}
         ]
+        for Param in self.__ParamList:
+            if not('id' in Param):
+                Param['id'] = Param['Name']
         self.__curParam = 0
         self.__saveIndex = 0
     def __flipBitmap(self, ImgName):
@@ -56,7 +59,7 @@ class Calibrator:
         i = 0
         for Param in self.__ParamList:
             Node = gPlayer.getElementByID("param"+str(i))
-            Name = Param['Name']
+            Name = Param['id']
             Val = self.__getParam(Name)
             Node.text = Param['Name']+": "+('%(val).'+str(Param['precision'])+'f') % {'val': Val}
             if self.__curParam == i:
@@ -66,13 +69,13 @@ class Calibrator:
             i += 1
     def __changeParam(self, Change):
         curParam = self.__ParamList[self.__curParam]
-        Val = self.__getParam(curParam['Name'])
+        Val = self.__getParam(curParam['id'])
         Val += Change*curParam['increment']
         if Val < curParam['min']:
             Val = curParam['min']
         if Val > curParam['max']:
             Val = curParam['max']
-        self.__setParam(curParam['Name'], Val)
+        self.__setParam(curParam['id'], Val)
     def onFrame(self):
         self.__updateBitmap("camera", avg.IMG_CAMERA)
         self.__updateBitmap("distorted", avg.IMG_DISTORTED)
@@ -115,8 +118,12 @@ class Calibrator:
             print ("Tracker configuration saved.")
         elif Event.keystring == "w":
             self.__saveIndex += 1
-            gTracker.getImage(avg.IMG_NOHISTORY).save("img"+str(self.__saveIndex)+".png")
-            print ("Image saved.")
+            gTracker.getImage(avg.IMG_CAMERA).save("img"+str(self.__saveIndex)+"_camera.png")
+            gTracker.getImage(avg.IMG_DISTORTED).save("img"+str(self.__saveIndex)+"_distorted.png")
+            gTracker.getImage(avg.IMG_NOHISTORY).save("img"+str(self.__saveIndex)+"_nohistory.png")
+            gTracker.getImage(avg.IMG_HIGHPASS).save("img"+str(self.__saveIndex)+"_highpass.png")
+            gTracker.getImage(avg.IMG_FINGERS).save("img"+str(self.__saveIndex)+"_fingers.png")
+            print ("Images saved.")
         else:
             print "Unknown key ", Event.keystring
         self.__displayParams()
@@ -150,16 +157,16 @@ Log.setCategories(Log.APP |
                   Log.WARNING | 
                   Log.PROFILE |
 #                 Log.PROFILE_LATEFRAMES |
-                  Log.CONFIG |  
+                  Log.CONFIG
 #                 Log.MEMORY  |
 #                 Log.BLTS    
-                  Log.EVENTS |
-                  Log.EVENTS2
+#                  Log.EVENTS |
+#                  Log.EVENTS2
                  )
 gPlayer.loadFile("calibrator.avg")
 anim.init(gPlayer)
 gPlayer.setVBlankFramerate(1)
-gTracker = gPlayer.addTracker("/dev/video1394/0", 60, "640x480_MONO8")
+gTracker = gPlayer.addTracker("/dev/video1394/0", 30, "640x480_MONO8")
 gCalibrator = Calibrator(gTracker)
 gPlayer.play()
 
