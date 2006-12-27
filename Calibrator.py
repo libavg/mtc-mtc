@@ -12,7 +12,10 @@ global gCalibrator
 
 class Calibrator:
     global gPlayer
-    def __init__(self, Tracker):
+    global gCalibrator
+    def __init__(self, Tracker, Player):
+        gPlayer = Player
+        gCalibrator = self
         self.__isActive = False
         self.__Tracker = Tracker
         self.__ParamList = [
@@ -85,15 +88,11 @@ class Calibrator:
     def switchActive(self):
         if self.__isActive:
             self.__isActive = False
-            gPlayer.getElementByID("fingers").opacity = 0
-            gPlayer.getElementByID("tracking").opacity = 0
-            gPlayer.getElementByID("border").opacity = 0
+            gPlayer.getElementByID("calibrator").opacity = 0
             gPlayer.clearInterval(self.__onFrameID)
         else:
             self.__isActive = True
-            gPlayer.getElementByID("fingers").opacity = 1 
-            gPlayer.getElementByID("tracking").opacity = 1
-            gPlayer.getElementByID("border").opacity = 1
+            gPlayer.getElementByID("calibrator").opacity = 1 
             self.__onFrameID = gPlayer.setInterval(1, self.onFrame)
             self.__displayParams()
         self.__Tracker.debug = self.__isActive
@@ -147,28 +146,28 @@ def onTouchDown():
     Node.x = Event.x-8
     Node.y = Event.y-8
 
-gPlayer = avg.Player()
-Log = avg.Logger.get()
-bDebug = not(os.getenv('AVG_DEPLOY'))
-if (bDebug):
-    gPlayer.setResolution(0, 0, 0, 0) 
-else:
-    gPlayer.setResolution(1, 0, 0, 0)
-#    Log.setFileDest("/var/log/cleuse.log")
-Log.setCategories(Log.APP |
-                  Log.WARNING | 
-                  Log.PROFILE |
-#                 Log.PROFILE_LATEFRAMES |
-                  Log.CONFIG
-#                 Log.MEMORY  |
-#                 Log.BLTS    
-#                  Log.EVENTS |
-#                  Log.EVENTS2
-                 )
-gPlayer.loadFile("calibrator.avg")
-anim.init(gPlayer)
-gPlayer.setVBlankFramerate(1)
-gTracker = gPlayer.addTracker("/dev/video1394/0", 30, "640x480_MONO8")
-gCalibrator = Calibrator(gTracker)
-gPlayer.play()
+#gPlayer = avg.Player()
+#Log = avg.Logger.get()
+#bDebug = not(os.getenv('AVG_DEPLOY'))
+#if (bDebug):
+#    gPlayer.setResolution(0, 0, 0, 0) 
+#else:
+#    gPlayer.setResolution(1, 0, 0, 0)
+##    Log.setFileDest("/var/log/cleuse.log")
+#Log.setCategories(Log.APP |
+#                  Log.WARNING | 
+#                  Log.PROFILE |
+##                 Log.PROFILE_LATEFRAMES |
+#                  Log.CONFIG
+##                 Log.MEMORY  |
+##                 Log.BLTS    
+##                  Log.EVENTS |
+##                  Log.EVENTS2
+#                 )
+#gPlayer.loadFile("calibrator.avg")
+#anim.init(gPlayer)
+#gPlayer.setVBlankFramerate(1)
+#gTracker = gPlayer.addTracker("/dev/video1394/0", 30, "640x480_MONO8")
+#gCalibrator = Calibrator(gTracker)
+#gPlayer.play()
 

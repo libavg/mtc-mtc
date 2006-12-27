@@ -2,8 +2,8 @@
 <trackerconfig>
  <barrel value="0.6"/>
  <trapezoid value="0.23"/>
- <TargetRect tlx="0" tly="0" brx="1280" bry="720"/>
  <ROI tlx="0" tly="54" brx="640" bry="480"/>
+ <destrect tlx="0" tly="0" brx="1280" bry="720"/>
  <brightness value="1"/>
  <exposure value="62"/>
  <gamma value="0"/>
