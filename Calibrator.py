@@ -48,8 +48,8 @@ class Calibrator:
             Node.width=Bitmap.getSize()[0]/4
             Node.height=Bitmap.getSize()[1]/4
         else:
-            Node.width = 1280
-            Node.height = 720
+            Node.width = 1278
+            Node.height = 718
         self.__flipBitmap(ImgName)
     def __getParam(self, Name):
         return getattr(gTracker, Name)
@@ -87,11 +87,13 @@ class Calibrator:
             self.__isActive = False
             gPlayer.getElementByID("fingers").opacity = 0
             gPlayer.getElementByID("tracking").opacity = 0
+            gPlayer.getElementByID("border").opacity = 0
             gPlayer.clearInterval(self.__onFrameID)
         else:
             self.__isActive = True
             gPlayer.getElementByID("fingers").opacity = 1 
             gPlayer.getElementByID("tracking").opacity = 1
+            gPlayer.getElementByID("border").opacity = 1
             self.__onFrameID = gPlayer.setInterval(1, self.onFrame)
             self.__displayParams()
         self.__Tracker.debug = self.__isActive

@@ -1,7 +1,8 @@
 <?xml version="1.0"?>
 <!DOCTYPE avg SYSTEM "../../doc/avg.dtd">
 <avg width="1280" height="720" onkeyup="onKeyUp" ontouchdown="onTouchDown">
-  <image id="fingers" x="0" y="0" width="1280" height="720" opacity="0"/>
+  <image id="border" x="0" y="0" width="1280" height="720" href="images/border.png" opacity="0"/>
+  <image id="fingers" x="1" y="1" width="1278" height="710" opacity="0"/>
   <div id="tracking" x="300" y="32" opacity="0">
     <words x="0" y="13" text="camera" size="16" font="Eurostile"/>
     <image x="0" y="32" href="images/CamImgBorder.png"/>
