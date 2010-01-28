@@ -37,17 +37,18 @@ class Button(object):
         w, h = parentNode.size
         if icon == '<':
             self.__node = g_player.createNode('polygon',
-                {'pos':[(0, h / 2), (w / 2, 0), (w / 2, h)], 'color':color})
+                {'pos':[(0, h / 2), (w / 2, 0), (w / 2, h)]})
         elif icon == '>':
             self.__node = g_player.createNode('polygon',
-                {'pos':[(w, h / 2), (w / 2, 0), (w / 2, h)], 'color':color})
+                {'pos':[(w, h / 2), (w / 2, 0), (w / 2, h)]})
         else:
             if icon == 'o':
                 r = h / 4
             else:
                 r = h / 2
             self.__node = g_player.createNode('circle',
-                {'pos':parentNode.size / 2, 'r':r, 'color':color})
+                {'pos':parentNode.size / 2, 'r':r})
+        self.__node.color = color
         self.__node.opacity = 0
         self.__node.sensitive = False
         parentNode.appendChild(self.__node)
@@ -61,12 +62,10 @@ class Button(object):
 
     def activate(self):
         avg.fadeIn(self.__node, 200)
-        self.__node.fillopacity = 0.2
         self.__node.sensitive = True
 
     def deactivate(self):
         avg.fadeOut(self.__node, 200)
-        self.__node.fillopacity = 0
         self.__node.sensitive = False
 
 
@@ -99,7 +98,9 @@ class Controller(object):
     def start(self):
         if self.__playerJoined:
             self.__node.sensitive = True
-        else:
+
+    def deactivateUnjoined(self):
+        if not self.__playerJoined:
             self.__joinButton.deactivate()
 
     def deactivate(self):
@@ -235,7 +236,11 @@ class MtTron(AVGApp):
                 (ctrlDiv.size.x - ctrlSize.x - 1, ctrlDiv.size.y - ctrlSize.y - 1),
                 ctrlSize))
 
-        self.__startButton = Button(ctrlDiv, 'FFFFFF', 'o', self.__start)
+        self.__startButton = Button(ctrlDiv, 'FF0000', 'o', self.__start)
+        self.__countdownNode = g_player.createNode('circle',
+                {'pos':ctrlDiv.size / 2, 'r':ctrlDiv.size.y / 4,
+                 'opacity':0, 'sensitive':False})
+        ctrlDiv.appendChild(self.__countdownNode)
 
         self.__preStart()
 
@@ -250,10 +255,25 @@ class MtTron(AVGApp):
             c.preStart()
 
     def __start(self):
+        def goGreen():
+            self.__countdownNode.fillcolor = '00FF00'
+            avg.LinearAnim(self.__countdownNode, 'fillopacity', 1000, 1, 0).start()
+            for c in self.__controllers:
+                c.start()
+            self.__onFrameHandlerID = g_player.setOnFrameHandler(self.__onFrame)
+        def goYellow():
+            self.__countdownNode.fillcolor = 'FFFF00'
+            avg.LinearAnim(self.__countdownNode, 'fillopacity', 1000, 1, 0, False,
+                    None, goGreen).start()
+        def goRed():
+            self.__countdownNode.fillcolor = 'FF0000'
+            avg.LinearAnim(self.__countdownNode, 'fillopacity', 1000, 1, 0, False,
+                    None, goYellow).start()
+
         self.__startButton.deactivate()
         for c in self.__controllers:
-            c.start()
-        self.__onFrameHandlerID = g_player.setOnFrameHandler(self.__onFrame)
+            c.deactivateUnjoined()
+        goRed()
 
     def __stop(self):
         def restart():
