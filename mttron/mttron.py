@@ -36,12 +36,20 @@ g_player = avg.Player.get()
 class Button(object):
     def __init__(self, parentNode, color, icon, callback):
         w, h = parentNode.size
-        if icon == '<':
+        if icon == '^':
+            self.__node = g_player.createNode('polygon',
+                    {'pos':[(w, h), (0, h), (0, 0)]})
+        elif icon == '<':
             self.__node = g_player.createNode('polygon',
                     {'pos':[(GRID_SIZE, 0), (w, 0), (w, h - GRID_SIZE)]})
         elif icon == '>':
             self.__node = g_player.createNode('polygon',
                     {'pos':[(w - GRID_SIZE, h), (0, h), (0, GRID_SIZE)]})
+        elif icon == '#':
+            # WinCounter size + some offset
+            size = Point2D(GRID_SIZE * 44, GRID_SIZE * 44)
+            self.__node = g_player.createNode('rect',
+                    {'pos':parentNode.size / 2 - size, 'size':size * 2})
         else:
             if icon == 'O':
                 self.__node = g_player.createNode('circle',
@@ -111,9 +119,11 @@ class Controller(object):
 
         self.__player.registerController(self)
 
-    def preStart(self):
+    def preStart(self, clearWins):
         self.__joinButton.activate()
         self.__playerJoined = False
+        if clearWins:
+            self.__player.clearWins()
 
     def start(self):
         if self.__playerJoined:
@@ -137,8 +147,52 @@ class Controller(object):
         self.__playerJoined = True
 
 
+class WinCounter(object):
+    def __init__(self, parentNode, size, angle, color):
+        def triangle(p0, p1, p2):
+            t = g_player.createNode('polygon',
+                    {'pos':[p0, p1, p2], 'color':color, 'fillcolor':color})
+            self.__node.appendChild(t)
+
+        self.__count = 0
+        self.__node = g_player.createNode('div',
+                {'pos':parentNode.size / 2 + Point2D(GRID_SIZE, GRID_SIZE),
+                 'size':(size, size),
+                 'angle':angle, 'pivot':(-GRID_SIZE, -GRID_SIZE), 'crop':False})
+        parentNode.appendChild(self.__node)
+
+        s12 = size / 2
+        s14 = size / 4
+        s34 = size * 3 / 4
+        triangle((0, 0), (s14, s14), (0, s12))
+        triangle((0, s12), (s14, s14), (s12, s12))
+        triangle((s12, s12), (s14, s34), (0, s12))
+        triangle((0, s12), (s14, s34), (0, size))
+        triangle((0, size), (s14, s34), (s12, size))
+        triangle((s12, size), (s14, s34), (s12, s12))
+        triangle((s12, s12), (s34, s34), (s12, size))
+        triangle((s12, size), (s34, s34), (size, size))
+
+        resetButton = Button(self.__node, color, '^', self.reset)
+        resetButton.activate()
+
+    @property
+    def count(self):
+        return self.__count
+
+    def inc(self):
+        self.__node.getChild(self.__count).fillopacity = 0.5
+        self.__count += 1
+
+    def reset(self):
+        for i in range(0, self.__count):
+            self.__node.getChild(i).fillopacity = 0
+        self.__count = 0
+
+
 class Player(object):
-    def __init__(self, parentNode, color, startPos, startHeading):
+    def __init__(self, parentNode, color, startPos, startHeading,
+            winsDiv, winsSize, winsAngle):
         self.__color = color
         self.__startPos = Point2D(startPos)
         self.__startHeading = Point2D(startHeading)
@@ -159,6 +213,10 @@ class Player(object):
                  'color':self.__color, 'strokewidth':3}))
         self.__nodeAnim = avg.ContinuousAnim(self.__node, 'angle', 0, 3.14)
 
+        self.__wins = WinCounter(winsDiv, winsSize, winsAngle, self.__color)
+        self.incWins = self.__wins.inc
+        self.clearWins = self.__wins.reset
+
     @property
     def color(self):
         return self.__color
@@ -166,6 +224,10 @@ class Player(object):
     @property
     def lines(self):
         return self.__lines
+
+    @property
+    def wins(self):
+        return self.__wins.count
 
     def registerController(self, controller):
         self.__controller = controller
@@ -328,46 +390,54 @@ class MtTron(AVGApp):
                 {'pos':(BORDER_WIDTH, BORDER_WIDTH), 'size':battlegroundSize,
                  'opacity':0, 'fillcolor':'000000', 'fillopacity':1}))
 
+        ctrlSize = GRID_SIZE * 42
         gameDiv = g_player.createNode('div',
                 {'pos':(BORDER_WIDTH, BORDER_WIDTH), 'size':battlegroundSize})
         self._parentNode.appendChild(gameDiv)
         ctrlDiv = g_player.createNode('div',
                 {'pos':gameDiv.pos, 'size':gameDiv.size})
         self._parentNode.appendChild(ctrlDiv)
+        self.__winsDiv = g_player.createNode('div',
+                {'size':gameDiv.size, 'opacity':0, 'crop':False})
+        ctrlDiv.appendChild(self.__winsDiv)
 
         BgAnim(gameDiv)
         BgAnim(gameDiv)
         BgAnim(gameDiv)
         BgAnim(gameDiv)
 
-        ctrlSize = GRID_SIZE * 42
         playerPos = ctrlSize + GRID_SIZE * 2
         self.__controllers = []
         # 1st
         p = Player(gameDiv, '00FF00',
-                (playerPos, playerPos), (GRID_SIZE, 0))
+                (playerPos, playerPos), (GRID_SIZE, 0),
+                self.__winsDiv, ctrlSize, pi)
         self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
                 (GRID_SIZE, GRID_SIZE), ctrlSize, 0))
         # 2nd
         p = Player(gameDiv, 'FF00FF',
-                (ctrlDiv.size.x - playerPos, playerPos), (-GRID_SIZE, 0))
+                (ctrlDiv.size.x - playerPos, playerPos), (-GRID_SIZE, 0),
+                self.__winsDiv, ctrlSize, -pi / 2)
         self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
                 (ctrlDiv.size.x - GRID_SIZE, GRID_SIZE), ctrlSize, pi / 2))
         # 3rd
         p = Player(gameDiv, '00FFFF',
-                (playerPos, ctrlDiv.size.y - playerPos), (GRID_SIZE, 0))
+                (playerPos, ctrlDiv.size.y - playerPos), (GRID_SIZE, 0),
+                self.__winsDiv, ctrlSize, pi / 2)
         self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
                 (GRID_SIZE, ctrlDiv.size.y - GRID_SIZE), ctrlSize, -pi / 2))
         # 4th
         p = Player(gameDiv, 'FFFF00',
                 (ctrlDiv.size.x - playerPos, ctrlDiv.size.y - playerPos),
-                (-GRID_SIZE, 0))
+                (-GRID_SIZE, 0),
+                self.__winsDiv, ctrlSize, 0)
         self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
                 (ctrlDiv.size.x - GRID_SIZE, ctrlDiv.size.y - GRID_SIZE),
                 ctrlSize, pi))
 
         self.__shield = Shield(gameDiv)
         self.__startButton = Button(ctrlDiv, 'FF0000', 'O', self.__start)
+        self.__clearButton = Button(ctrlDiv, 'FF0000', '#', self.__clearWins)
         self.__countdownNode = g_player.createNode('circle',
                 {'pos':ctrlDiv.size / 2, 'r':ctrlDiv.size.y / 4,
                  'opacity':0, 'sensitive':False})
@@ -377,13 +447,15 @@ class MtTron(AVGApp):
 
     def joinPlayer(self, player):
         self.__activePlayers.append(player)
-        if len(self.__activePlayers) == 2:
+        if len(self.__activePlayers) == 1:
+            avg.fadeOut(self.__winsDiv, 200)
+        elif len(self.__activePlayers) == 2:
             self.__startButton.activate()
 
-    def __preStart(self):
+    def __preStart(self, clearWins=False):
         self.__activePlayers = []
         for c in self.__controllers:
-            c.preStart()
+            c.preStart(clearWins)
         self.__shield.jump()
 
     def __start(self):
@@ -408,32 +480,47 @@ class MtTron(AVGApp):
             c.deactivateUnjoined()
         goRed()
 
-    def __stop(self):
+    def __stop(self, forceClearWins=False):
         def restart():
             for p in self.__activePlayers:
                 p.setDead()
-            self.__preStart()
+            avg.fadeIn(self.__winsDiv, 200)
+            if forceClearWins:
+                self.__clearButton.activate()
+            else:
+                self.__preStart()
+
         g_player.clearInterval(self.__onFrameHandlerID)
         self.__shield.deactivate()
         g_player.setTimeout(2000, restart)
 
+    def __clearWins(self):
+        self.__clearButton.deactivate()
+        self.__preStart(True)
+
     def __onFrame(self):
         for p in self.__activePlayers:
             p.step()
+
         crashedPlayers = []
         for p in self.__activePlayers:
             if p.checkCrash(self.__activePlayers):
                 crashedPlayers.append(p)
-        if len(self.__activePlayers) == len(crashedPlayers):
+        for p in crashedPlayers:
+            p.setDead()
+            self.__activePlayers.remove(p)
+
+        if len(self.__activePlayers) == 0:
             self.__stop()
+        elif len(self.__activePlayers) == 1:
+            self.__activePlayers[0].incWins()
+            if self.__activePlayers[0].wins == 8:
+                self.__stop(True)
+            else:
+                self.__stop()
         else:
-            for p in crashedPlayers:
-                p.setDead()
-                self.__activePlayers.remove(p)
-                if len(self.__activePlayers) == 1:
-                    self.__stop()
-        for p in self.__activePlayers:
-            p.checkShield(self.__shield)
+            for p in self.__activePlayers:
+                p.checkShield(self.__shield)
 
 
 if __name__ == '__main__':
