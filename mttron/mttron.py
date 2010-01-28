@@ -169,7 +169,7 @@ class Player(object):
         self.__node.appendChild(g_player.createNode('line',
                 {'pos1':(0, -GRID_SIZE * 2), 'pos2':(0, GRID_SIZE * 2),
                  'color':self.__color, 'strokewidth':3}))
-        self.__nodeAnimID = avg.ContinuousAnim(self.__node, 'angle', 0, 3.14)
+        self.__nodeAnim = avg.ContinuousAnim(self.__node, 'angle', 0, 3.14)
 
     @property
     def color(self):
@@ -185,7 +185,8 @@ class Player(object):
     def setReady(self):
         self.__node.pos = self.__startPos
         self.__heading = Point2D(self.__startHeading)
-        self.__nodeAnimID.start()
+        self.__shield = None
+        self.__nodeAnim.start()
         avg.fadeIn(self.__div, 200)
         self.__createLine()
 
@@ -195,12 +196,16 @@ class Player(object):
                 l.unlink()
             self.__lines = []
 
+        if not self.__shield is None:
+            self.__shield.jump()
         self.__controller.deactivate()
-        self.__nodeAnimID.abort()
+        self.__nodeAnim.abort()
         avg.fadeOut(self.__div, 200, removeLines)
 
     def step(self):
         self.__node.pos += self.__heading
+        if not self.__shield is None:
+            self.__shield.pos = self.__node.pos
         # lines always run rightwards or downwards (for easier collision checking)
         if self.__heading.x < 0 or self.__heading.y < 0:
             self.__lines[0].pos1 = self.__node.pos
@@ -229,19 +234,57 @@ class Player(object):
             else:
                 firstLine = 0
             for l in p.lines[firstLine:]:
-                if pos.x == l.pos1.x:
-                    if l.pos1.y <= pos.y and pos.y <= l.pos2.y:
-                        return True
-                elif pos.y == l.pos1.y \
+                if pos.x == l.pos1.x \
+                        and l.pos1.y <= pos.y and pos.y <= l.pos2.y \
+                        or pos.y == l.pos1.y \
                         and l.pos1.x <= pos.x and pos.x <= l.pos2.x:
-                    return True
+                    if self.__shield is None:
+                        return True
+                    self.__shield.jump()
+                    self.__shield = None
         return False
+
+    def checkShield(self, shield):
+        if shield.pos == self.__node.pos:
+            self.__shield = shield
 
     def __createLine(self):
         self.__lines.insert(0, g_player.createNode('line',
                 {'pos1':self.__node.pos, 'pos2':self.__node.pos,
                  'color':self.__color, 'strokewidth':2}))
         self.__div.appendChild(self.__lines[0])
+
+
+class Shield(object):
+    def __init__(self, parentNode):
+        self.__posX = range(GRID_SIZE, int(parentNode.size.x), GRID_SIZE)
+        self.__posY = range(GRID_SIZE, int(parentNode.size.y), GRID_SIZE)
+
+        self.__node = g_player.createNode('circle', {'r':GRID_SIZE * 2, 'opacity':0})
+        parentNode.appendChild(self.__node)
+
+    @property
+    def pos(self):
+        return self.__node.pos
+
+    @pos.setter
+    def pos(self, pos):
+        self.__node.pos = pos
+
+    def activate(self):
+        self.__active = True
+        self.__flash()
+
+    def deactivate(self):
+        self.__active = False
+
+    def jump(self):
+        self.__node.pos = (choice(self.__posX), choice(self.__posY))
+
+    def __flash(self):
+        if self.__active:
+            avg.LinearAnim(self.__node, 'opacity', 600, 1, 0, False,
+                    None, self.__flash).start()
 
 
 class BgAnim(object):
@@ -334,6 +377,7 @@ class MtTron(AVGApp):
                 (ctrlDiv.size.x - ctrlSize.x - 4, ctrlDiv.size.y - ctrlSize.y - 4),
                 ctrlSize))
 
+        self.__shield = Shield(gameDiv)
         self.__startButton = Button(ctrlDiv, 'FF0000', 'O', self.__start)
         self.__countdownNode = g_player.createNode('circle',
                 {'pos':ctrlDiv.size / 2, 'r':ctrlDiv.size.y / 4,
@@ -351,6 +395,7 @@ class MtTron(AVGApp):
         self.__activePlayers = []
         for c in self.__controllers:
             c.preStart()
+        self.__shield.jump()
 
     def __start(self):
         def goGreen():
@@ -363,6 +408,7 @@ class MtTron(AVGApp):
             self.__countdownNode.fillcolor = 'FFFF00'
             avg.LinearAnim(self.__countdownNode, 'fillopacity', 1000, 1, 0, False,
                     None, goGreen).start()
+            self.__shield.activate()
         def goRed():
             self.__countdownNode.fillcolor = 'FF0000'
             avg.LinearAnim(self.__countdownNode, 'fillopacity', 1000, 1, 0, False,
@@ -379,6 +425,7 @@ class MtTron(AVGApp):
                 p.setDead()
             self.__preStart()
         g_player.clearInterval(self.__onFrameHandlerID)
+        self.__shield.deactivate()
         g_player.setTimeout(2000, restart)
 
     def __onFrame(self):
@@ -396,6 +443,8 @@ class MtTron(AVGApp):
                 self.__activePlayers.remove(p)
                 if len(self.__activePlayers) == 1:
                     self.__stop()
+        for p in self.__activePlayers:
+            p.checkShield(self.__shield)
 
 
 if __name__ == '__main__':
