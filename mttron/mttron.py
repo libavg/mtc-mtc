@@ -20,6 +20,7 @@
 
 from libavg import avg, AVGApp, Point2D
 from math import floor
+from random import choice, randint
 
 
 BORDER_WIDTH = 42
@@ -243,6 +244,43 @@ class Player(object):
         self.__div.appendChild(self.__lines[0])
 
 
+class BgAnim(object):
+    def __init__(self, parentNode):
+        self.__maxX, self.__maxY = parentNode.size
+        self.__heading = Point2D(randint(-1, 1), 0)
+        if self.__heading.x == 0:
+            self.__heading.y = choice([-1, 1])
+
+        self.__node = g_player.createNode('div',
+                {'pos':parentNode.size / 2, 'crop':False, 'opacity':0.2})
+        parentNode.appendChild(self.__node)
+        self.__node.appendChild(g_player.createNode('line',
+                {'pos1':(-self.__maxX, 0), 'pos2':(self.__maxX, 0)}))
+        self.__node.appendChild(g_player.createNode('line',
+                {'pos1':(0, -self.__maxY), 'pos2':(0, self.__maxY)}))
+
+        self.__headingCountdown = randint(60, 120)
+        g_player.setOnFrameHandler(self.__onFrame)
+
+    def __onFrame(self):
+        if self.__headingCountdown == 0:
+            self.__headingCountdown = randint(60, 120)
+            if self.__heading.x == 0:
+                self.__heading.x = choice([-1, 1])
+                self.__heading.y = 0
+            else:
+                self.__heading.x = 0
+                self.__heading.y = choice([-1, 1])
+        else:
+            self.__headingCountdown -= 1
+
+        self.__node.pos += self.__heading
+        if self.__node.pos.x == 0 or self.__node.pos.x == self.__maxX \
+                or self.__node.pos.y == 0 or self.__node.pos.y == self.__maxY:
+            self.__heading *= -1
+            self.__node.pos += self.__heading
+
+
 class MtTron(AVGApp):
     multitouch = True
 
@@ -265,6 +303,11 @@ class MtTron(AVGApp):
         ctrlDiv = g_player.createNode('div',
                 {'pos':gameDiv.pos, 'size':gameDiv.size})
         self._parentNode.appendChild(ctrlDiv)
+
+        BgAnim(gameDiv)
+        BgAnim(gameDiv)
+        BgAnim(gameDiv)
+        BgAnim(gameDiv)
 
         ctrlSize = Point2D(GRID_SIZE * 64, GRID_SIZE * 32)
         self.__controllers = []
