@@ -256,10 +256,12 @@ class MtTron(AVGApp):
         self.__onFrameHandlerID = g_player.setOnFrameHandler(self.__onFrame)
 
     def __stop(self):
+        def restart():
+            for p in self.__activePlayers:
+                p.setDead()
+            self.__preStart()
         g_player.clearInterval(self.__onFrameHandlerID)
-        for p in self.__activePlayers:
-            p.setDead()
-        self.__preStart()
+        g_player.setTimeout(2000, restart)
 
     def __onFrame(self):
         for p in self.__activePlayers:
@@ -268,11 +270,14 @@ class MtTron(AVGApp):
         for p in self.__activePlayers:
             if p.checkCrash(self.__activePlayers):
                 crashedPlayers.append(p)
-        for p in crashedPlayers:
-            p.setDead()
-            self.__activePlayers.remove(p)
-        if len(self.__activePlayers) < 2:
+        if len(self.__activePlayers) == len(crashedPlayers):
             self.__stop()
+        else:
+            for p in crashedPlayers:
+                p.setDead()
+                self.__activePlayers.remove(p)
+                if len(self.__activePlayers) == 1:
+                    self.__stop()
 
 
 if __name__ == '__main__':
