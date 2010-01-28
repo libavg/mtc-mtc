@@ -63,15 +63,19 @@ class Button(object):
         self.__node.setEventHandler(avg.CURSORUP, avg.MOUSE | avg.TOUCH, self.__onUp)
 
     def activate(self):
+        self.__node.fillopacity = 0.2 # needs libavg-r4503 bugfix to avoid crash
         avg.fadeIn(self.__node, 200, 0.5)
         self.__node.sensitive = True
 
     def deactivate(self):
+        def hideFill():
+            self.__node.fillopacity = 0
+
         if not self.__cursorID is None:
             self.__node.releaseEventCapture(self.__cursorID)
             self.__cursorID = None
         self.__node.sensitive = False
-        avg.fadeOut(self.__node, 200)
+        avg.fadeOut(self.__node, 200, hideFill)
 
     def __onDown(self, event):
         if not self.__cursorID is None:
@@ -79,7 +83,7 @@ class Button(object):
         self.__cursorID = event.cursorid
         self.__node.setEventCapture(self.__cursorID)
 
-        avg.LinearAnim(self.__node, 'fillopacity', 200, 1, 0).start()
+        avg.LinearAnim(self.__node, 'fillopacity', 200, 1, 0.2).start() # libavg-r4503
         self.__callback()
         return True # stop event propagation
 
