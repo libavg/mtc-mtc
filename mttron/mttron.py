@@ -19,8 +19,10 @@
 # along with mttron. If not, see <http://www.gnu.org/licenses/>.
 
 from libavg import avg, AVGApp, Point2D
+from math import floor
 
 
+BORDER_WIDTH = 42
 GRID_SIZE = 4
 
 g_player = avg.Player.get()
@@ -35,11 +37,24 @@ class Player(object):
         self.__lines = []
         self.__createLine()
 
+    @property
+    def pos(self):
+        return self.__node.pos
+
+    @property
+    def lines(self):
+        return self.__lines
+
     def step(self):
         self.__node.pos += self.__heading
         self.__lines[0].pos2 = self.__node.pos
 
     def changeHeading(self, heading):
+        if len(self.__lines):
+            if self.__heading.x < 0 or self.__heading.y < 0:
+                pos1 = self.__lines[0].pos1
+                self.__lines[0].pos1 = self.__lines[0].pos2
+                self.__lines[0].pos2 = pos1
         if self.__heading.x == 0:
             self.__heading.x = heading * self.__heading.y
             self.__heading.y = 0
@@ -59,8 +74,17 @@ class MtTron(AVGApp):
 
     def init(self):
         screenSize = self._parentNode.size
-        self.__player = Player(self._parentNode, screenSize / 2)
-        g_player.setOnFrameHandler(self.__onFrame)
+        battlegroundSize = Point2D(
+                floor((screenSize.x - BORDER_WIDTH * 2) / GRID_SIZE) * GRID_SIZE,
+                floor((screenSize.y - BORDER_WIDTH * 2) / GRID_SIZE) * GRID_SIZE)
+
+        self.__gameDiv = g_player.createNode('div',
+                {'pos':(BORDER_WIDTH, BORDER_WIDTH), 'size':battlegroundSize})
+        self.__gameDiv.elementoutlinecolor = 'FF0000'
+        self._parentNode.appendChild(self.__gameDiv)
+
+        self.__player = Player(self.__gameDiv, (battlegroundSize.x / 2 + 2, battlegroundSize.y / 2 + 2))
+        self.__onFrameHandlerID = g_player.setOnFrameHandler(self.__onFrame)
 
     def onKey(self, event):
         if event.keystring == "left":
@@ -73,6 +97,19 @@ class MtTron(AVGApp):
 
     def __onFrame(self):
         self.__player.step()
+        playerPos = self.__player.pos
+        if playerPos.x == 0 \
+                or playerPos.y == 0 \
+                or playerPos.x == self.__gameDiv.width \
+                or playerPos.y == self.__gameDiv.height:
+            g_player.clearInterval(self.__onFrameHandlerID)
+        for l in self.__player.lines[1:]:
+            if playerPos.x == l.pos1.x:
+                if l.pos1.y <= playerPos.y and playerPos.y <= l.pos2.y:
+                    g_player.clearInterval(self.__onFrameHandlerID)
+            elif playerPos.y == l.pos1.y:
+                if l.pos1.x <= playerPos.x and playerPos.x <= l.pos2.x:
+                    g_player.clearInterval(self.__onFrameHandlerID)
 
 
 if __name__ == '__main__':
