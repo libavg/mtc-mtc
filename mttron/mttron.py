@@ -53,20 +53,38 @@ class Button(object):
         self.__node.sensitive = False
         parentNode.appendChild(self.__node)
 
-        def onDown():
-            avg.LinearAnim(self.__node, 'fillopacity', 200, 1, 0).start()
-            callback()
-
-        self.__node.setEventHandler(avg.CURSORDOWN, avg.MOUSE | avg.TOUCH,
-                lambda e: onDown())
+        self.__cursorID = None
+        self.__callback = callback
+        self.__node.setEventHandler(avg.CURSORDOWN, avg.MOUSE | avg.TOUCH, self.__onDown)
+        self.__node.setEventHandler(avg.CURSORUP, avg.MOUSE | avg.TOUCH, self.__onUp)
 
     def activate(self):
         avg.fadeIn(self.__node, 200, 0.5)
         self.__node.sensitive = True
 
     def deactivate(self):
-        avg.fadeOut(self.__node, 200)
+        if not self.__cursorID is None:
+            self.__node.releaseEventCapture(self.__cursorID)
+            self.__cursorID = None
         self.__node.sensitive = False
+        avg.fadeOut(self.__node, 200)
+
+    def __onDown(self, event):
+        if not self.__cursorID is None:
+            return False
+        self.__cursorID = event.cursorid
+        self.__node.setEventCapture(self.__cursorID)
+
+        avg.LinearAnim(self.__node, 'fillopacity', 200, 1, 0).start()
+        self.__callback()
+        return True # stop event propagation
+
+    def __onUp(self, event):
+        if not self.__cursorID == event.cursorid:
+            return False
+        self.__node.releaseEventCapture(self.__cursorID)
+        self.__cursorID = None
+        return True # stop event propagation
 
 
 class Controller(object):
