@@ -28,14 +28,17 @@ GRID_SIZE = 4
 g_player = avg.Player.get()
 
 
+#def logMsg(msg):
+#    print '[%s] %s' %(g_player.getFrameTime(), msg)
+
+
 class Player(object):
-    def __init__(self, parentNode, startPos):
+    def __init__(self, parentNode, startPos, startHeading):
         self.__parentNode = parentNode
-        self.__heading = Point2D(0, -GRID_SIZE)
-        self.__node = g_player.createNode('circle', {'pos':startPos, 'r':3})
-        self.__parentNode.appendChild(self.__node)
+        self.__startPos = startPos
+        self.__startHeading = startHeading
+        self.__node = g_player.createNode('circle', {'r':3})
         self.__lines = []
-        self.__createLine()
 
     @property
     def pos(self):
@@ -44,6 +47,18 @@ class Player(object):
     @property
     def lines(self):
         return self.__lines
+
+    def setReady(self):
+        self.__node.pos = self.__startPos
+        self.__parentNode.appendChild(self.__node)
+        self.__heading = Point2D(self.__startHeading)
+        self.__createLine()
+
+    def setDead(self):
+        self.__node.unlink()
+        for l in self.__lines:
+            l.unlink()
+        self.__lines = []
 
     def step(self):
         self.__node.pos += self.__heading
@@ -83,7 +98,11 @@ class MtTron(AVGApp):
         self.__gameDiv.elementoutlinecolor = 'FF0000'
         self._parentNode.appendChild(self.__gameDiv)
 
-        self.__player = Player(self.__gameDiv, (battlegroundSize.x / 2 + 2, battlegroundSize.y / 2 + 2))
+        self.__player = Player(self.__gameDiv,
+                Point2D(battlegroundSize.x / 2 + 2, battlegroundSize.y / 2 + 2),
+                Point2D(0, -GRID_SIZE))
+        self.__player.setReady()
+
         self.__onFrameHandlerID = g_player.setOnFrameHandler(self.__onFrame)
 
     def onKey(self, event):
@@ -102,14 +121,17 @@ class MtTron(AVGApp):
                 or playerPos.y == 0 \
                 or playerPos.x == self.__gameDiv.width \
                 or playerPos.y == self.__gameDiv.height:
-            g_player.clearInterval(self.__onFrameHandlerID)
+            self.__player.setDead()
+            self.__player.setReady()
         for l in self.__player.lines[1:]:
             if playerPos.x == l.pos1.x:
                 if l.pos1.y <= playerPos.y and playerPos.y <= l.pos2.y:
-                    g_player.clearInterval(self.__onFrameHandlerID)
+                    self.__player.setDead()
+                    self.__player.setReady()
             elif playerPos.y == l.pos1.y:
                 if l.pos1.x <= playerPos.x and playerPos.x <= l.pos2.x:
-                    g_player.clearInterval(self.__onFrameHandlerID)
+                    self.__player.setDead()
+                    self.__player.setReady()
 
 
 if __name__ == '__main__':
