@@ -32,6 +32,90 @@ g_player = avg.Player.get()
 #    print '[%s] %s' %(g_player.getFrameTime(), msg)
 
 
+class Button(object):
+    def __init__(self, parentNode, color, icon, callback):
+        w, h = parentNode.size
+        if icon == '<':
+            self.__node = g_player.createNode('polygon',
+                {'pos':[(0, h / 2), (w / 2, 0), (w / 2, h)], 'color':color})
+        elif icon == '>':
+            self.__node = g_player.createNode('polygon',
+                {'pos':[(w, h / 2), (w / 2, 0), (w / 2, h)], 'color':color})
+        else:
+            if icon == 'o':
+                r = h / 4
+            else:
+                r = h / 2
+            self.__node = g_player.createNode('circle',
+                {'pos':parentNode.size / 2, 'r':r, 'color':color})
+        self.__node.opacity = 0
+        self.__node.sensitive = False
+        parentNode.appendChild(self.__node)
+
+        def onDown():
+            avg.LinearAnim(self.__node, 'fillopacity', 200, 1, 0).start()
+            callback()
+
+        self.__node.setEventHandler(avg.CURSORDOWN, avg.MOUSE | avg.TOUCH,
+                lambda e: onDown())
+
+    def activate(self):
+        avg.fadeIn(self.__node, 200)
+        self.__node.fillopacity = 0.2
+        self.__node.sensitive = True
+
+    def deactivate(self):
+        avg.fadeOut(self.__node, 200)
+        self.__node.fillopacity = 0
+        self.__node.sensitive = False
+
+
+class Controller(object):
+    def __init__(self, parentNode, player, joinCallback, pos, size):
+        self.__player = player
+        self.__joinCallback = joinCallback
+
+        self.__node = g_player.createNode('div', {'pos':pos, 'size':size, 'crop':False})
+#        self.__node.elementoutlinecolor = self.__player.color
+        parentNode.appendChild(self.__node)
+
+        self.__joinButton = Button(self.__node, self.__player.color, 'O',
+                self.__joinPlayer)
+        if(pos[1] > parentNode.size.y / 2):
+            direction = 1
+        else:
+            direction = -1
+        self.__leftButton = Button(self.__node, self.__player.color, '<',
+                lambda: self.__player.changeHeading(direction))
+        self.__rightButton = Button(self.__node, self.__player.color, '>',
+                lambda: self.__player.changeHeading(-direction))
+
+        self.__player.registerController(self)
+
+    def preStart(self):
+        self.__joinButton.activate()
+        self.__playerJoined = False
+
+    def start(self):
+        if self.__playerJoined:
+            self.__node.sensitive = True
+        else:
+            self.__joinButton.deactivate()
+
+    def deactivate(self):
+        self.__leftButton.deactivate()
+        self.__rightButton.deactivate()
+
+    def __joinPlayer(self):
+        self.__joinButton.deactivate()
+        self.__node.sensitive = False
+        self.__leftButton.activate()
+        self.__rightButton.activate()
+        self.__joinCallback(self.__player)
+        self.__player.setReady()
+        self.__playerJoined = True
+
+
 class Player(object):
     def __init__(self, parentNode, color, startPos, startHeading):
         self.__parentNode = parentNode
@@ -42,8 +126,15 @@ class Player(object):
         self.__lines = []
 
     @property
+    def color(self):
+        return self.__color
+
+    @property
     def lines(self):
         return self.__lines
+
+    def registerController(self, controller):
+        self.__controller = controller
 
     def setReady(self):
         self.__node.pos = self.__startPos
@@ -52,6 +143,7 @@ class Player(object):
         self.__createLine()
 
     def setDead(self):
+        self.__controller.deactivate()
         self.__node.unlink()
         for l in self.__lines:
             l.unlink()
@@ -110,40 +202,64 @@ class MtTron(AVGApp):
                 floor((screenSize.x - BORDER_WIDTH * 2) / GRID_SIZE) * GRID_SIZE,
                 floor((screenSize.y - BORDER_WIDTH * 2) / GRID_SIZE) * GRID_SIZE)
 
-        self.__gameDiv = g_player.createNode('div',
+        gameDiv = g_player.createNode('div',
                 {'pos':(BORDER_WIDTH, BORDER_WIDTH), 'size':battlegroundSize})
-        self.__gameDiv.elementoutlinecolor = 'FF0000'
-        self._parentNode.appendChild(self.__gameDiv)
+        gameDiv.elementoutlinecolor = 'FF0000'
+        self._parentNode.appendChild(gameDiv)
+        ctrlDiv = g_player.createNode('div',
+                {'pos':gameDiv.pos, 'size':gameDiv.size})
+        self._parentNode.appendChild(ctrlDiv)
 
-        self.__players = []
-        self.__players.append(Player(self.__gameDiv, '00FF00',
-                (GRID_SIZE, GRID_SIZE),
-                (GRID_SIZE, 0)))
-        self.__players.append(Player(self.__gameDiv, 'FF00FF',
-                (battlegroundSize.x - GRID_SIZE, GRID_SIZE),
-                (-GRID_SIZE, 0)))
-        self.__players.append(Player(self.__gameDiv, '00FFFF',
-                (GRID_SIZE, battlegroundSize.y - GRID_SIZE),
-                (GRID_SIZE, 0)))
-        self.__players.append(Player(self.__gameDiv, 'FFFF00',
-                (battlegroundSize.x - GRID_SIZE, battlegroundSize.y - GRID_SIZE),
-                (-GRID_SIZE, 0)))
+        ctrlSize = Point2D(GRID_SIZE * 64, GRID_SIZE * 32)
+        self.__controllers = []
+        # 1st
+        p = Player(gameDiv, '00FF00',
+                ctrlSize, (GRID_SIZE, 0))
+        self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
+                (1, 1), ctrlSize))
+        # 2nd
+        p = Player(gameDiv, 'FF00FF',
+                (ctrlDiv.size.x - ctrlSize.x, ctrlSize.y), (-GRID_SIZE, 0))
+        self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
+                (ctrlDiv.size.x - ctrlSize.x - 1, 1), ctrlSize))
+        # 3rd
+        p = Player(gameDiv, '00FFFF',
+                (ctrlSize.x, ctrlDiv.size.y - ctrlSize.y), (GRID_SIZE, 0))
+        self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
+                (1, ctrlDiv.size.y - ctrlSize.y - 1), ctrlSize))
+        # 4th
+        p = Player(gameDiv, 'FFFF00',
+                (ctrlDiv.size.x - ctrlSize.x, ctrlDiv.size.y - ctrlSize.y),
+                (-GRID_SIZE, 0))
+        self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
+                (ctrlDiv.size.x - ctrlSize.x - 1, ctrlDiv.size.y - ctrlSize.y - 1),
+                ctrlSize))
 
+        self.__startButton = Button(ctrlDiv, 'FFFFFF', 'o', self.__start)
+
+        self.__preStart()
+
+    def joinPlayer(self, player):
+        self.__activePlayers.append(player)
+        if len(self.__activePlayers) == 2:
+            self.__startButton.activate()
+
+    def __preStart(self):
         self.__activePlayers = []
-        for p in self.__players:
-            self.__activePlayers.append(p)
-            p.setReady()
+        for c in self.__controllers:
+            c.preStart()
 
+    def __start(self):
+        self.__startButton.deactivate()
+        for c in self.__controllers:
+            c.start()
         self.__onFrameHandlerID = g_player.setOnFrameHandler(self.__onFrame)
 
-    def onKey(self, event):
-        if event.keystring == "left":
-            self.__players[0].changeHeading(1)
-        elif event.keystring == "right":
-            self.__players[0].changeHeading(-1)
-        else:
-            return False
-        return True
+    def __stop(self):
+        g_player.clearInterval(self.__onFrameHandlerID)
+        for p in self.__activePlayers:
+            p.setDead()
+        self.__preStart()
 
     def __onFrame(self):
         for p in self.__activePlayers:
@@ -155,6 +271,8 @@ class MtTron(AVGApp):
         for p in crashedPlayers:
             p.setDead()
             self.__activePlayers.remove(p)
+        if len(self.__activePlayers) < 2:
+            self.__stop()
 
 
 if __name__ == '__main__':
