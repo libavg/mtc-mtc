@@ -41,13 +41,17 @@ class Button(object):
         elif icon == '>':
             self.__node = g_player.createNode('polygon',
                     {'pos':[(w, h / 2), (w / 2 + GRID_SIZE, 0), (w / 2 + GRID_SIZE, h)]})
-        else:
-            if icon == 'o':
-                r = h / 4
-            else:
-                r = h / 2
+        elif icon == 'O':
             self.__node = g_player.createNode('circle',
-                    {'pos':parentNode.size / 2, 'r':r})
+                        {'pos':parentNode.size / 2, 'r':h / 4, 'strokewidth':2})
+        else:
+            r = h / 2
+            if icon == 'Ol':
+                posX = r
+            else:
+                posX = w - r
+            self.__node = g_player.createNode('circle',
+                    {'pos':(posX, r), 'r':r})
         self.__node.color = color
         self.__node.opacity = 0
         self.__node.sensitive = False
@@ -96,8 +100,13 @@ class Controller(object):
 #        self.__node.elementoutlinecolor = self.__player.color
         parentNode.appendChild(self.__node)
 
-        self.__joinButton = Button(self.__node, self.__player.color, 'O',
+        if(pos[0] > parentNode.size.x / 2):
+            icon = 'Or'
+        else:
+            icon = 'Ol'
+        self.__joinButton = Button(self.__node, self.__player.color, icon,
                 self.__joinPlayer)
+
         if(pos[1] > parentNode.size.y / 2):
             direction = 1
         else:
@@ -248,26 +257,26 @@ class MtTron(AVGApp):
         p = Player(gameDiv, '00FF00',
                 ctrlSize, (GRID_SIZE, 0))
         self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
-                (1, 1), ctrlSize))
+                (4, 4), ctrlSize))
         # 2nd
         p = Player(gameDiv, 'FF00FF',
                 (ctrlDiv.size.x - ctrlSize.x, ctrlSize.y), (-GRID_SIZE, 0))
         self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
-                (ctrlDiv.size.x - ctrlSize.x - 1, 1), ctrlSize))
+                (ctrlDiv.size.x - ctrlSize.x - 4, 4), ctrlSize))
         # 3rd
         p = Player(gameDiv, '00FFFF',
                 (ctrlSize.x, ctrlDiv.size.y - ctrlSize.y), (GRID_SIZE, 0))
         self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
-                (1, ctrlDiv.size.y - ctrlSize.y - 1), ctrlSize))
+                (4, ctrlDiv.size.y - ctrlSize.y - 4), ctrlSize))
         # 4th
         p = Player(gameDiv, 'FFFF00',
                 (ctrlDiv.size.x - ctrlSize.x, ctrlDiv.size.y - ctrlSize.y),
                 (-GRID_SIZE, 0))
         self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
-                (ctrlDiv.size.x - ctrlSize.x - 1, ctrlDiv.size.y - ctrlSize.y - 1),
+                (ctrlDiv.size.x - ctrlSize.x - 4, ctrlDiv.size.y - ctrlSize.y - 4),
                 ctrlSize))
 
-        self.__startButton = Button(ctrlDiv, 'FF0000', 'o', self.__start)
+        self.__startButton = Button(ctrlDiv, 'FF0000', 'O', self.__start)
         self.__countdownNode = g_player.createNode('circle',
                 {'pos':ctrlDiv.size / 2, 'r':ctrlDiv.size.y / 4,
                  'opacity':0, 'sensitive':False})
