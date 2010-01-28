@@ -19,7 +19,7 @@
 # along with mttron. If not, see <http://www.gnu.org/licenses/>.
 
 from libavg import avg, AVGApp, Point2D
-from math import floor
+from math import floor, pi
 from random import choice, randint
 
 
@@ -38,21 +38,17 @@ class Button(object):
         w, h = parentNode.size
         if icon == '<':
             self.__node = g_player.createNode('polygon',
-                    {'pos':[(0, h / 2), (w / 2 - GRID_SIZE, 0), (w / 2 - GRID_SIZE, h)]})
+                    {'pos':[(GRID_SIZE, 0), (w, 0), (w, h - GRID_SIZE)]})
         elif icon == '>':
             self.__node = g_player.createNode('polygon',
-                    {'pos':[(w, h / 2), (w / 2 + GRID_SIZE, 0), (w / 2 + GRID_SIZE, h)]})
-        elif icon == 'O':
-            self.__node = g_player.createNode('circle',
-                        {'pos':parentNode.size / 2, 'r':h / 4, 'strokewidth':2})
+                    {'pos':[(w - GRID_SIZE, h), (0, h), (0, GRID_SIZE)]})
         else:
-            r = h / 2
-            if icon == 'Ol':
-                posX = r
+            if icon == 'O':
+                self.__node = g_player.createNode('circle',
+                            {'pos':parentNode.size / 2, 'r':h / 4, 'strokewidth':2})
             else:
-                posX = w - r
-            self.__node = g_player.createNode('circle',
-                    {'pos':(posX, r), 'r':r})
+                self.__node = g_player.createNode('circle',
+                            {'pos':parentNode.size / 2, 'r':h / 2})
         self.__node.color = color
         self.__node.opacity = 0
         self.__node.sensitive = False
@@ -97,29 +93,21 @@ class Button(object):
 
 
 class Controller(object):
-    def __init__(self, parentNode, player, joinCallback, pos, size):
+    def __init__(self, parentNode, player, joinCallback, pos, size, angle):
         self.__player = player
         self.__joinCallback = joinCallback
 
-        self.__node = g_player.createNode('div', {'pos':pos, 'size':size, 'crop':False})
-#        self.__node.elementoutlinecolor = self.__player.color
+        self.__node = g_player.createNode('div',
+                {'pos':pos, 'size':(size, size),
+                 'angle':angle, 'pivot':(0, 0), 'crop':False})
         parentNode.appendChild(self.__node)
 
-        if(pos[0] > parentNode.size.x / 2):
-            icon = 'Or'
-        else:
-            icon = 'Ol'
-        self.__joinButton = Button(self.__node, self.__player.color, icon,
+        self.__joinButton = Button(self.__node, self.__player.color, 'o',
                 self.__joinPlayer)
-
-        if(pos[1] > parentNode.size.y / 2):
-            direction = 1
-        else:
-            direction = -1
         self.__leftButton = Button(self.__node, self.__player.color, '<',
-                lambda: self.__player.changeHeading(direction))
+                lambda: self.__player.changeHeading(1))
         self.__rightButton = Button(self.__node, self.__player.color, '>',
-                lambda: self.__player.changeHeading(-direction))
+                lambda: self.__player.changeHeading(-1))
 
         self.__player.registerController(self)
 
@@ -352,30 +340,31 @@ class MtTron(AVGApp):
         BgAnim(gameDiv)
         BgAnim(gameDiv)
 
-        ctrlSize = Point2D(GRID_SIZE * 64, GRID_SIZE * 32)
+        ctrlSize = GRID_SIZE * 42
+        playerPos = ctrlSize + GRID_SIZE * 2
         self.__controllers = []
         # 1st
         p = Player(gameDiv, '00FF00',
-                ctrlSize, (GRID_SIZE, 0))
+                (playerPos, playerPos), (GRID_SIZE, 0))
         self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
-                (4, 4), ctrlSize))
+                (GRID_SIZE, GRID_SIZE), ctrlSize, 0))
         # 2nd
         p = Player(gameDiv, 'FF00FF',
-                (ctrlDiv.size.x - ctrlSize.x, ctrlSize.y), (-GRID_SIZE, 0))
+                (ctrlDiv.size.x - playerPos, playerPos), (-GRID_SIZE, 0))
         self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
-                (ctrlDiv.size.x - ctrlSize.x - 4, 4), ctrlSize))
+                (ctrlDiv.size.x - GRID_SIZE, GRID_SIZE), ctrlSize, pi / 2))
         # 3rd
         p = Player(gameDiv, '00FFFF',
-                (ctrlSize.x, ctrlDiv.size.y - ctrlSize.y), (GRID_SIZE, 0))
+                (playerPos, ctrlDiv.size.y - playerPos), (GRID_SIZE, 0))
         self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
-                (4, ctrlDiv.size.y - ctrlSize.y - 4), ctrlSize))
+                (GRID_SIZE, ctrlDiv.size.y - GRID_SIZE), ctrlSize, -pi / 2))
         # 4th
         p = Player(gameDiv, 'FFFF00',
-                (ctrlDiv.size.x - ctrlSize.x, ctrlDiv.size.y - ctrlSize.y),
+                (ctrlDiv.size.x - playerPos, ctrlDiv.size.y - playerPos),
                 (-GRID_SIZE, 0))
         self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
-                (ctrlDiv.size.x - ctrlSize.x - 4, ctrlDiv.size.y - ctrlSize.y - 4),
-                ctrlSize))
+                (ctrlDiv.size.x - GRID_SIZE, ctrlDiv.size.y - GRID_SIZE),
+                ctrlSize, pi))
 
         self.__shield = Shield(gameDiv)
         self.__startButton = Button(ctrlDiv, 'FF0000', 'O', self.__start)
