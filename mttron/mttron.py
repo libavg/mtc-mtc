@@ -153,13 +153,22 @@ class Player(object):
         self.__color = color
         self.__startPos = Point2D(startPos)
         self.__startHeading = Point2D(startHeading)
+        self.__lines = []
+
         self.__div = g_player.createNode('div', {'size':parentNode.size, 'opacity':0})
         parentNode.appendChild(self.__div)
-        self.__node = g_player.createNode('circle',
-                {'r':GRID_SIZE, 'color':self.__color,
-                 'fillcolor':self.__color, 'fillopacity':1})
+        self.__node = g_player.createNode('div', {'pivot':(0, 0), 'crop':False})
         self.__div.appendChild(self.__node)
-        self.__lines = []
+        self.__node.appendChild(g_player.createNode('circle',
+                {'r':GRID_SIZE, 'color':self.__color,
+                 'fillcolor':self.__color, 'fillopacity':1}))
+        self.__node.appendChild(g_player.createNode('line',
+                {'pos1':(-GRID_SIZE * 2, 0), 'pos2':(GRID_SIZE * 2, 0),
+                 'color':self.__color, 'strokewidth':3}))
+        self.__node.appendChild(g_player.createNode('line',
+                {'pos1':(0, -GRID_SIZE * 2), 'pos2':(0, GRID_SIZE * 2),
+                 'color':self.__color, 'strokewidth':3}))
+        self.__nodeAnimID = avg.ContinuousAnim(self.__node, 'angle', 0, 3.14)
 
     @property
     def color(self):
@@ -175,6 +184,7 @@ class Player(object):
     def setReady(self):
         self.__node.pos = self.__startPos
         self.__heading = Point2D(self.__startHeading)
+        self.__nodeAnimID.start()
         avg.fadeIn(self.__div, 200)
         self.__createLine()
 
@@ -185,6 +195,7 @@ class Player(object):
             self.__lines = []
 
         self.__controller.deactivate()
+        self.__nodeAnimID.abort()
         avg.fadeOut(self.__div, 200, removeLines)
 
     def step(self):
