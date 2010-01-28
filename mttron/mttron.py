@@ -37,17 +37,17 @@ class Button(object):
         w, h = parentNode.size
         if icon == '<':
             self.__node = g_player.createNode('polygon',
-                {'pos':[(0, h / 2), (w / 2, 0), (w / 2, h)]})
+                    {'pos':[(0, h / 2), (w / 2 - GRID_SIZE, 0), (w / 2 - GRID_SIZE, h)]})
         elif icon == '>':
             self.__node = g_player.createNode('polygon',
-                {'pos':[(w, h / 2), (w / 2, 0), (w / 2, h)]})
+                    {'pos':[(w, h / 2), (w / 2 + GRID_SIZE, 0), (w / 2 + GRID_SIZE, h)]})
         else:
             if icon == 'o':
                 r = h / 4
             else:
                 r = h / 2
             self.__node = g_player.createNode('circle',
-                {'pos':parentNode.size / 2, 'r':r})
+                    {'pos':parentNode.size / 2, 'r':r})
         self.__node.color = color
         self.__node.opacity = 0
         self.__node.sensitive = False
@@ -61,7 +61,7 @@ class Button(object):
                 lambda e: onDown())
 
     def activate(self):
-        avg.fadeIn(self.__node, 200)
+        avg.fadeIn(self.__node, 200, 0.5)
         self.__node.sensitive = True
 
     def deactivate(self):
@@ -119,11 +119,15 @@ class Controller(object):
 
 class Player(object):
     def __init__(self, parentNode, color, startPos, startHeading):
-        self.__parentNode = parentNode
         self.__color = color
         self.__startPos = Point2D(startPos)
         self.__startHeading = Point2D(startHeading)
-        self.__node = g_player.createNode('circle', {'r':3, 'color':self.__color})
+        self.__div = g_player.createNode('div', {'size':parentNode.size, 'opacity':0})
+        parentNode.appendChild(self.__div)
+        self.__node = g_player.createNode('circle',
+                {'r':GRID_SIZE, 'color':self.__color,
+                 'fillcolor':self.__color, 'fillopacity':1})
+        self.__div.appendChild(self.__node)
         self.__lines = []
 
     @property
@@ -139,16 +143,18 @@ class Player(object):
 
     def setReady(self):
         self.__node.pos = self.__startPos
-        self.__parentNode.appendChild(self.__node)
         self.__heading = Point2D(self.__startHeading)
+        avg.fadeIn(self.__div, 200)
         self.__createLine()
 
     def setDead(self):
+        def removeLines():
+            for l in self.__lines:
+                l.unlink()
+            self.__lines = []
+
         self.__controller.deactivate()
-        self.__node.unlink()
-        for l in self.__lines:
-            l.unlink()
-        self.__lines = []
+        avg.fadeOut(self.__div, 200, removeLines)
 
     def step(self):
         self.__node.pos += self.__heading
@@ -171,7 +177,7 @@ class Player(object):
         pos = self.__node.pos
         # check border
         if pos.x == 0 or pos.y == 0 \
-                or pos.x == self.__parentNode.width or pos.y == self.__parentNode.height:
+                or pos.x == self.__div.width or pos.y == self.__div.height:
             return True
         # check lines
         for p in players:
@@ -190,8 +196,9 @@ class Player(object):
 
     def __createLine(self):
         self.__lines.insert(0, g_player.createNode('line',
-                {'pos1':self.__node.pos, 'pos2':self.__node.pos, 'color':self.__color}))
-        self.__parentNode.appendChild(self.__lines[0])
+                {'pos1':self.__node.pos, 'pos2':self.__node.pos,
+                 'color':self.__color, 'strokewidth':2}))
+        self.__div.appendChild(self.__lines[0])
 
 
 class MtTron(AVGApp):
