@@ -228,9 +228,15 @@ class MtTron(AVGApp):
                 floor((screenSize.x - BORDER_WIDTH * 2) / GRID_SIZE) * GRID_SIZE,
                 floor((screenSize.y - BORDER_WIDTH * 2) / GRID_SIZE) * GRID_SIZE)
 
+        self._parentNode.appendChild(g_player.createNode('rect',
+                {'size':screenSize,
+                 'opacity':0, 'fillcolor':'B00000', 'fillopacity':1}))
+        self._parentNode.appendChild(g_player.createNode('rect',
+                {'pos':(BORDER_WIDTH, BORDER_WIDTH), 'size':battlegroundSize,
+                 'opacity':0, 'fillcolor':'000000', 'fillopacity':1}))
+
         gameDiv = g_player.createNode('div',
                 {'pos':(BORDER_WIDTH, BORDER_WIDTH), 'size':battlegroundSize})
-        gameDiv.elementoutlinecolor = 'FF0000'
         self._parentNode.appendChild(gameDiv)
         ctrlDiv = g_player.createNode('div',
                 {'pos':gameDiv.pos, 'size':gameDiv.size})
