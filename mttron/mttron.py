@@ -27,6 +27,7 @@ BORDER_WIDTH = 42
 GRID_SIZE = 4
 
 g_player = avg.Player.get()
+g_exitButtons = True
 
 
 #def logMsg(msg):
@@ -346,6 +347,7 @@ class Shield(object):
 
     pos = property(pos_get, pos_set)
 
+
 class BgAnim(object):
     def __init__(self, parentNode):
         self.__maxX, self.__maxY = parentNode.size
@@ -366,11 +368,11 @@ class BgAnim(object):
 
     def start(self):
         self.__onFrameHandlerID = g_player.setOnFrameHandler(self.__onFrame)
-        
+
     def stop(self):
         assert self.__onFrameHandlerID is not None
         g_player.clearInterval(self.__onFrameHandlerID)
-        
+
     def __onFrame(self):
         if self.__headingCountdown == 0:
             self.__headingCountdown = randint(60, 120)
@@ -414,7 +416,7 @@ class MtTron(AVGApp):
                 {'pos':gameDiv.pos, 'size':gameDiv.size})
         self._parentNode.appendChild(ctrlDiv)
         self.__winsDiv = g_player.createNode('div',
-                {'size':gameDiv.size, 'opacity':0, 'crop':False})
+                {'size':gameDiv.size, 'opacity':0, 'crop':False, 'sensitive':False})
         ctrlDiv.appendChild(self.__winsDiv)
 
         self.__bgAnims = []
@@ -458,10 +460,10 @@ class MtTron(AVGApp):
                  'opacity':0, 'sensitive':False})
         ctrlDiv.appendChild(self.__countdownNode)
 
-        Button(self.__winsDiv, 'FF0000', 'xl', self.leave).activate()
-        Button(self.__winsDiv, 'FF0000', 'xr', self.leave).activate()
-        
-        self.__winsDiv.sensitive = False
+        if g_exitButtons:
+            Button(self.__winsDiv, 'FF0000', 'xl', self.leave).activate()
+            Button(self.__winsDiv, 'FF0000', 'xr', self.leave).activate()
+
         self.__preStart()
 
     def joinPlayer(self, player):
@@ -475,11 +477,11 @@ class MtTron(AVGApp):
     def _enter(self):
         for bga in self.__bgAnims:
             bga.start()
-            
+
     def _leave(self):
         for bga in self.__bgAnims:
             bga.stop()
-        
+
     def __preStart(self, clearWins=False):
         self.__activePlayers = []
         for c in self.__controllers:
@@ -553,5 +555,6 @@ class MtTron(AVGApp):
 
 
 if __name__ == '__main__':
+    g_exitButtons = False
     MtTron.start(resolution = (1280, 720))
 
