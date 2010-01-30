@@ -460,12 +460,15 @@ class MtTron(AVGApp):
 
         Button(self.__winsDiv, 'FF0000', 'xl', self.leave).activate()
         Button(self.__winsDiv, 'FF0000', 'xr', self.leave).activate()
+        
+        self.__winsDiv.sensitive = False
         self.__preStart()
 
     def joinPlayer(self, player):
         self.__activePlayers.append(player)
         if len(self.__activePlayers) == 1:
             avg.fadeOut(self.__winsDiv, 200)
+            self.__winsDiv.sensitive = False
         elif len(self.__activePlayers) == 2:
             self.__startButton.activate()
 
@@ -510,6 +513,7 @@ class MtTron(AVGApp):
             for p in self.__activePlayers:
                 p.setDead()
             avg.fadeIn(self.__winsDiv, 200)
+            self.__winsDiv.sensitive = True
             if forceClearWins:
                 self.__clearButton.activate()
             else:
