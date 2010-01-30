@@ -50,6 +50,16 @@ class Button(object):
             size = Point2D(GRID_SIZE * 44, GRID_SIZE * 44)
             self.__node = g_player.createNode('rect',
                     {'pos':parentNode.size / 2 - size, 'size':size * 2})
+        elif icon == 'xr':
+            size = Point2D(GRID_SIZE * 22, GRID_SIZE * 22)
+            self.__node = g_player.createNode('rect',
+                {'pos': parentNode.size / 2 - size + Point2D(GRID_SIZE * 88, 0),
+                'size':size * 2, 'angle': pi / 4.0})
+        elif icon == 'xl':
+            size = Point2D(GRID_SIZE * 22, GRID_SIZE * 22)
+            self.__node = g_player.createNode('rect',
+                    {'pos': parentNode.size / 2 - size - Point2D(GRID_SIZE * 88, 0),
+                    'size':size * 2, 'angle': pi / 4.0})
         else:
             if icon == 'O':
                 self.__node = g_player.createNode('circle',
@@ -352,8 +362,15 @@ class BgAnim(object):
                 {'pos1':(0, -self.__maxY), 'pos2':(0, self.__maxY)}))
 
         self.__headingCountdown = randint(60, 120)
-        g_player.setOnFrameHandler(self.__onFrame)
+        self.__onFrameHandlerID = None
 
+    def start(self):
+        self.__onFrameHandlerID = g_player.setOnFrameHandler(self.__onFrame)
+        
+    def stop(self):
+        assert self.__onFrameHandlerID is not None
+        g_player.clearInterval(self.__onFrameHandlerID)
+        
     def __onFrame(self):
         if self.__headingCountdown == 0:
             self.__headingCountdown = randint(60, 120)
@@ -400,10 +417,9 @@ class MtTron(AVGApp):
                 {'size':gameDiv.size, 'opacity':0, 'crop':False})
         ctrlDiv.appendChild(self.__winsDiv)
 
-        BgAnim(gameDiv)
-        BgAnim(gameDiv)
-        BgAnim(gameDiv)
-        BgAnim(gameDiv)
+        self.__bgAnims = []
+        for i in xrange(0, 4):
+            self.__bgAnims.append(BgAnim(gameDiv))
 
         playerPos = ctrlSize + GRID_SIZE * 2
         self.__controllers = []
@@ -442,6 +458,8 @@ class MtTron(AVGApp):
                  'opacity':0, 'sensitive':False})
         ctrlDiv.appendChild(self.__countdownNode)
 
+        Button(self.__winsDiv, 'FF0000', 'xl', self.leave).activate()
+        Button(self.__winsDiv, 'FF0000', 'xr', self.leave).activate()
         self.__preStart()
 
     def joinPlayer(self, player):
@@ -451,6 +469,14 @@ class MtTron(AVGApp):
         elif len(self.__activePlayers) == 2:
             self.__startButton.activate()
 
+    def _enter(self):
+        for bga in self.__bgAnims:
+            bga.start()
+            
+    def _leave(self):
+        for bga in self.__bgAnims:
+            bga.stop()
+        
     def __preStart(self, clearWins=False):
         self.__activePlayers = []
         for c in self.__controllers:
