@@ -313,12 +313,10 @@ class Shield(object):
         self.__node = g_player.createNode('circle', {'r':GRID_SIZE * 2, 'opacity':0})
         parentNode.appendChild(self.__node)
 
-    @property
-    def pos(self):
+    def pos_get(self):
         return self.__node.pos
 
-    @pos.setter
-    def pos(self, pos):
+    def pos_set(self, pos):
         self.__node.pos = pos
 
     def activate(self):
@@ -336,6 +334,7 @@ class Shield(object):
             avg.LinearAnim(self.__node, 'opacity', 600, 1, 0, False,
                     None, self.__flash).start()
 
+    pos = property(pos_get, pos_set)
 
 class BgAnim(object):
     def __init__(self, parentNode):
