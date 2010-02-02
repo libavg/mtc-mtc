@@ -308,6 +308,7 @@ class Player(object):
     def checkShield(self, shield):
         if shield.pos == self.__node.pos:
             self.__shield = shield
+            self.__shield.grab()
 
     def __createLine(self):
         self.__lines.insert(0, g_player.createNode('line',
@@ -318,17 +319,35 @@ class Player(object):
 
 class Shield(object):
     def __init__(self, parentNode):
-        self.__posX = range(GRID_SIZE, int(parentNode.size.x), GRID_SIZE)
-        self.__posY = range(GRID_SIZE, int(parentNode.size.y), GRID_SIZE)
+        self.__posOffset = Point2D(GRID_SIZE * 4, GRID_SIZE * 4)
+        self.__minPosX = int(-self.__posOffset.x) + GRID_SIZE
+        self.__maxPosX = int(parentNode.size.x - self.__posOffset.x)
+        self.__posX = range(self.__minPosX, self.__maxPosX, GRID_SIZE)
+        self.__minPosY = int(-self.__posOffset.y) + GRID_SIZE
+        self.__maxPosY = int(parentNode.size.y - self.__posOffset.y)
+        self.__posY = range(self.__minPosY, self.__maxPosY, GRID_SIZE)
 
-        self.__node = g_player.createNode('circle', {'r':GRID_SIZE * 2, 'opacity':0})
-        parentNode.appendChild(self.__node)
+        self.__div = g_player.createNode('div', {'size':self.__posOffset * 2})
+        parentNode.appendChild(self.__div)
+        self.__node = g_player.createNode('circle',
+                {'pos':self.__posOffset, 'r':GRID_SIZE * 2, 'opacity':0})
+        self.__div.appendChild(self.__node)
+
+        self.__cursorID = None
+        self.__div.setEventHandler(avg.CURSORDOWN, avg.MOUSE | avg.TOUCH, self.__onDown)
+        self.__div.setEventHandler(avg.CURSORUP, avg.MOUSE | avg.TOUCH, self.__onUp)
+        self.__div.setEventHandler(avg.CURSORMOTION, avg.MOUSE | avg.TOUCH, self.__onMotion)
 
     def pos_get(self):
-        return self.__node.pos
+        if self.__cursorID is None:
+            return self.__div.pos + self.__posOffset
+        else:
+            return -self.__posOffset
 
     def pos_set(self, pos):
-        self.__node.pos = pos
+        self.__div.pos = pos - self.__posOffset
+
+    pos = property(pos_get, pos_set)
 
     def activate(self):
         self.__active = True
@@ -338,14 +357,41 @@ class Shield(object):
         self.__active = False
 
     def jump(self):
-        self.__node.pos = (choice(self.__posX), choice(self.__posY))
+        self.__div.pos = (choice(self.__posX), choice(self.__posY))
+        self.__isGrabbed = False
+
+    def grab(self):
+        self.__isGrabbed = True
 
     def __flash(self):
         if self.__active:
             avg.LinearAnim(self.__node, 'opacity', 600, 1, 0, False,
                     None, self.__flash).start()
 
-    pos = property(pos_get, pos_set)
+    def __onDown(self, event):
+        if self.__isGrabbed or not self.__cursorID is None:
+            return False
+        self.__cursorID = event.cursorid
+        self.__div.setEventCapture(self.__cursorID)
+        self.__dragOffset = event.pos - self.__div.pos
+        return True
+
+    def __onUp(self, event):
+        if not self.__cursorID == event.cursorid:
+            return False
+        self.__div.releaseEventCapture(self.__cursorID)
+        self.__cursorID = None
+        return True
+
+    def __onMotion(self, event):
+        if not self.__cursorID == event.cursorid:
+            return False
+        pos = (event.pos - self.__dragOffset) / GRID_SIZE
+        pos = Point2D(round(pos.x), round(pos.y)) * GRID_SIZE
+        if self.__minPosX <= pos.x and pos.x < self.__maxPosX \
+                and self.__minPosY <= pos.y and pos.y < self.__maxPosY:
+            self.__div.pos = pos
+        return True
 
 
 class BgAnim(object):
@@ -423,6 +469,8 @@ class MtTron(AVGApp):
         for i in xrange(0, 4):
             self.__bgAnims.append(BgAnim(gameDiv))
 
+        self.__shield = Shield(ctrlDiv)
+
         playerPos = ctrlSize + GRID_SIZE * 2
         self.__controllers = []
         # 1st
@@ -452,7 +500,6 @@ class MtTron(AVGApp):
                 (ctrlDiv.size.x - GRID_SIZE, ctrlDiv.size.y - GRID_SIZE),
                 ctrlSize, pi))
 
-        self.__shield = Shield(gameDiv)
         self.__startButton = Button(ctrlDiv, 'FF0000', 'O', self.__start)
         self.__clearButton = Button(ctrlDiv, 'FF0000', '#', self.__clearWins)
         self.__countdownNode = g_player.createNode('circle',
