@@ -132,6 +132,7 @@ class Controller(object):
 
     def preStart(self, clearWins):
         self.__joinButton.activate()
+        self.__node.sensitive = True
         self.__playerJoined = False
         if clearWins:
             self.__player.clearWins()
@@ -143,10 +144,12 @@ class Controller(object):
     def deactivateUnjoined(self):
         if not self.__playerJoined:
             self.__joinButton.deactivate()
+            self.__node.sensitive = False
 
     def deactivate(self):
         self.__leftButton.deactivate()
         self.__rightButton.deactivate()
+        self.__node.sensitive = False
 
     def __joinPlayer(self):
         self.__joinButton.deactivate()
