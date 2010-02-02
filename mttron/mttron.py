@@ -269,7 +269,7 @@ class Player(object):
     def step(self):
         self.__node.pos += self.__heading
         if not self.__shield is None:
-            self.__shield.pos = self.__node.pos
+            self.__shield.move(self.__node.pos)
         # lines always run rightwards or downwards (for easier collision checking)
         if self.__heading.x < 0 or self.__heading.y < 0:
             self.__lines[0].pos1 = self.__node.pos
@@ -285,11 +285,14 @@ class Player(object):
             self.__heading.x = 0
         self.__createLine()
 
-    def checkCrash(self, players):
+    def checkCrash(self, players, blocker):
         pos = self.__node.pos
         # check border
         if pos.x == 0 or pos.y == 0 \
                 or pos.x == self.__div.width or pos.y == self.__div.height:
+            return True
+        # check blocker
+        if blocker.checkCollision(pos):
             return True
         # check lines
         for p in players:
@@ -309,7 +312,7 @@ class Player(object):
         return False
 
     def checkShield(self, shield):
-        if shield.pos == self.__node.pos:
+        if shield.checkCollision(self.__node.pos):
             self.__shield = shield
             self.__shield.grab()
 
@@ -320,37 +323,26 @@ class Player(object):
         self.__div.appendChild(self.__lines[0])
 
 
-class Shield(object):
-    def __init__(self, parentNode):
-        self.__posOffset = Point2D(GRID_SIZE * 4, GRID_SIZE * 4)
-        self.__minPosX = int(-self.__posOffset.x) + GRID_SIZE
-        self.__maxPosX = int(parentNode.size.x - self.__posOffset.x)
+class DragItem(object):
+    def __init__(self, parentNode, iconNode):
+        self._posOffset = Point2D(GRID_SIZE * 4, GRID_SIZE * 4)
+        self.__minPosX = int(-self._posOffset.x) + GRID_SIZE
+        self.__maxPosX = int(parentNode.size.x - self._posOffset.x)
         self.__posX = range(self.__minPosX, self.__maxPosX, GRID_SIZE)
-        self.__minPosY = int(-self.__posOffset.y) + GRID_SIZE
-        self.__maxPosY = int(parentNode.size.y - self.__posOffset.y)
+        self.__minPosY = int(-self._posOffset.y) + GRID_SIZE
+        self.__maxPosY = int(parentNode.size.y - self._posOffset.y)
         self.__posY = range(self.__minPosY, self.__maxPosY, GRID_SIZE)
 
-        self.__div = g_player.createNode('div', {'size':self.__posOffset * 2})
-        parentNode.appendChild(self.__div)
-        self.__node = g_player.createNode('circle',
-                {'pos':self.__posOffset, 'r':GRID_SIZE * 2, 'opacity':0})
-        self.__div.appendChild(self.__node)
+        self._div = g_player.createNode('div', {'size':self._posOffset * 2})
+        parentNode.appendChild(self._div)
+        self.__node = iconNode
+        self.__node.opacity = 0
+        self._div.appendChild(self.__node)
 
         self.__cursorID = None
-        self.__div.setEventHandler(avg.CURSORDOWN, avg.MOUSE | avg.TOUCH, self.__onDown)
-        self.__div.setEventHandler(avg.CURSORUP, avg.MOUSE | avg.TOUCH, self.__onUp)
-        self.__div.setEventHandler(avg.CURSORMOTION, avg.MOUSE | avg.TOUCH, self.__onMotion)
-
-    def pos_get(self):
-        if self.__cursorID is None:
-            return self.__div.pos + self.__posOffset
-        else:
-            return -self.__posOffset
-
-    def pos_set(self, pos):
-        self.__div.pos = pos - self.__posOffset
-
-    pos = property(pos_get, pos_set)
+        self._div.setEventHandler(avg.CURSORDOWN, avg.MOUSE | avg.TOUCH, self._onDown)
+        self._div.setEventHandler(avg.CURSORUP, avg.MOUSE | avg.TOUCH, self.__onUp)
+        self._div.setEventHandler(avg.CURSORMOTION, avg.MOUSE | avg.TOUCH, self.__onMotion)
 
     def activate(self):
         self.__active = True
@@ -360,29 +352,33 @@ class Shield(object):
         self.__active = False
 
     def jump(self):
-        self.__div.pos = (choice(self.__posX), choice(self.__posY))
-        self.__isGrabbed = False
+        self._div.pos = (choice(self.__posX), choice(self.__posY))
 
-    def grab(self):
-        self.__isGrabbed = True
+    def checkCollision(self, pos):
+        if not self.__cursorID is None:
+            return False # no collision when dragging
+        dist = self._div.pos + self._posOffset - pos
+        if abs(dist.x) <= GRID_SIZE and abs(dist.y) <= GRID_SIZE:
+            return True
+        return False
 
     def __flash(self):
         if self.__active:
             avg.LinearAnim(self.__node, 'opacity', 600, 1, 0, False,
                     None, self.__flash).start()
 
-    def __onDown(self, event):
-        if self.__isGrabbed or not self.__cursorID is None:
+    def _onDown(self, event):
+        if not self.__cursorID is None:
             return False
         self.__cursorID = event.cursorid
-        self.__div.setEventCapture(self.__cursorID)
-        self.__dragOffset = event.pos - self.__div.pos
+        self._div.setEventCapture(self.__cursorID)
+        self.__dragOffset = event.pos - self._div.pos
         return True
 
     def __onUp(self, event):
         if not self.__cursorID == event.cursorid:
             return False
-        self.__div.releaseEventCapture(self.__cursorID)
+        self._div.releaseEventCapture(self.__cursorID)
         self.__cursorID = None
         return True
 
@@ -393,8 +389,43 @@ class Shield(object):
         pos = Point2D(round(pos.x), round(pos.y)) * GRID_SIZE
         if self.__minPosX <= pos.x and pos.x < self.__maxPosX \
                 and self.__minPosY <= pos.y and pos.y < self.__maxPosY:
-            self.__div.pos = pos
+            self._div.pos = pos
         return True
+
+
+class Shield(DragItem):
+    def __init__(self, parentNode):
+        icon = g_player.createNode('circle', {'r':GRID_SIZE * 2})
+        super(Shield, self).__init__(parentNode, icon)
+        icon.pos = self._posOffset
+
+    def jump(self):
+        super(Shield, self).jump()
+        self.__isGrabbed = False
+
+    def move(self, pos):
+        self._div.pos = pos - self._posOffset
+
+    def checkCollision(self, pos):
+        if self.__isGrabbed:
+            return False
+        return super(Shield, self).checkCollision(pos)
+
+    def grab(self):
+        self.__isGrabbed = True
+
+    def _onDown(self, event):
+        if self.__isGrabbed:
+            return False
+        return super(Shield, self)._onDown(event)
+
+
+class Blocker(DragItem):
+    def __init__(self, parentNode):
+        icon = g_player.createNode('rect',
+                {'size':(GRID_SIZE * 3, GRID_SIZE * 3), 'color':'FF0000'})
+        super(Blocker, self).__init__(parentNode, icon)
+        icon.pos = self._posOffset - icon.size / 2
 
 
 class BgAnim(object):
@@ -440,7 +471,6 @@ class BgAnim(object):
             self.__heading *= -1
             self.__node.pos += self.__heading
 
-
 class MtTron(AVGApp):
     multitouch = True
 
@@ -473,6 +503,7 @@ class MtTron(AVGApp):
             self.__bgAnims.append(BgAnim(gameDiv))
 
         self.__shield = Shield(ctrlDiv)
+        self.__blocker = Blocker(ctrlDiv)
 
         playerPos = ctrlSize + GRID_SIZE * 2
         self.__controllers = []
@@ -537,6 +568,7 @@ class MtTron(AVGApp):
         for c in self.__controllers:
             c.preStart(clearWins)
         self.__shield.jump()
+        self.__blocker.jump()
 
     def __start(self):
         def goGreen():
@@ -550,6 +582,7 @@ class MtTron(AVGApp):
             avg.LinearAnim(self.__countdownNode, 'fillopacity', 1000, 1, 0, False,
                     None, goGreen).start()
             self.__shield.activate()
+            self.__blocker.activate()
         def goRed():
             self.__countdownNode.fillcolor = 'FF0000'
             avg.LinearAnim(self.__countdownNode, 'fillopacity', 1000, 1, 0, False,
@@ -573,6 +606,7 @@ class MtTron(AVGApp):
 
         g_player.clearInterval(self.__onFrameHandlerID)
         self.__shield.deactivate()
+        self.__blocker.deactivate()
         g_player.setTimeout(2000, restart)
 
     def __clearWins(self):
@@ -585,7 +619,7 @@ class MtTron(AVGApp):
 
         crashedPlayers = []
         for p in self.__activePlayers:
-            if p.checkCrash(self.__activePlayers):
+            if p.checkCrash(self.__activePlayers, self.__blocker):
                 crashedPlayers.append(p)
         for p in crashedPlayers:
             p.setDead()
