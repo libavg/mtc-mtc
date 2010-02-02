@@ -364,7 +364,8 @@ class DragItem(object):
 
     def __flash(self):
         if self.__active:
-            avg.LinearAnim(self.__node, 'opacity', 600, 1, 0, False,
+            avg.LinearAnim(self.__node, 'opacity', 600, 1, 0).start()
+            avg.LinearAnim(self.__node, 'fillopacity', 600, 1, 0, False,
                     None, self.__flash).start()
 
     def _onDown(self, event):
@@ -423,7 +424,8 @@ class Shield(DragItem):
 class Blocker(DragItem):
     def __init__(self, parentNode):
         icon = g_player.createNode('rect',
-                {'size':(GRID_SIZE * 3, GRID_SIZE * 3), 'color':'FF0000'})
+                {'size':(GRID_SIZE * 3, GRID_SIZE * 3),
+                 'color':'FF0000', 'fillcolor':'FF0000'})
         super(Blocker, self).__init__(parentNode, icon)
         icon.pos = self._posOffset - icon.size / 2
 
