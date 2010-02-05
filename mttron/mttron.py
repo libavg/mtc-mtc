@@ -216,16 +216,20 @@ class Player(object):
         parentNode.appendChild(self.__div)
         self.__node = g_player.createNode('div', {'pivot':(0, 0), 'crop':False})
         self.__div.appendChild(self.__node)
-        self.__node.appendChild(g_player.createNode('circle',
-                {'r':GRID_SIZE, 'color':self.__color,
-                 'fillcolor':self.__color, 'fillopacity':1}))
+        self.__body = g_player.createNode('circle', {'color':self.__color})
+        self.__node.appendChild(self.__body)
         self.__node.appendChild(g_player.createNode('line',
                 {'pos1':(-GRID_SIZE * 2, 0), 'pos2':(GRID_SIZE * 2, 0),
                  'color':self.__color, 'strokewidth':3}))
         self.__node.appendChild(g_player.createNode('line',
                 {'pos1':(0, -GRID_SIZE * 2), 'pos2':(0, GRID_SIZE * 2),
                  'color':self.__color, 'strokewidth':3}))
+
         self.__nodeAnim = avg.ContinuousAnim(self.__node, 'angle', 0, 3.14)
+        self.__explodeAnim = avg.ParallelAnim(
+                (avg.LinearAnim(self.__body, 'r', 200, self.__body.r, GRID_SIZE * 6),
+                 avg.LinearAnim(self.__body, 'opacity', 200, 1, 0)),
+                None, self.__remove)
 
         self.__wins = WinCounter(winsDiv, winsSize, winsAngle, self.__color)
         self.incWins = self.__wins.inc
@@ -248,23 +252,25 @@ class Player(object):
 
     def setReady(self):
         self.__node.pos = self.__startPos
+        self.__body.r = GRID_SIZE
+        self.__body.strokewidth = 1
+        self.__body.opacity = 1
         self.__heading = Point2D(self.__startHeading)
         self.__shield = None
         self.__nodeAnim.start()
         avg.fadeIn(self.__div, 200)
         self.__createLine()
 
-    def setDead(self):
-        def removeLines():
-            for l in self.__lines:
-                l.unlink()
-            self.__lines = []
-
+    def setDead(self, explode=True):
         if not self.__shield is None:
             self.__shield.jump()
         self.__controller.deactivate()
         self.__nodeAnim.abort()
-        avg.fadeOut(self.__div, 200, removeLines)
+        if explode:
+            self.__body.strokewidth = 3
+            self.__explodeAnim.start()
+        else:
+            self.__remove()
 
     def step(self):
         self.__node.pos += self.__heading
@@ -321,6 +327,14 @@ class Player(object):
                 {'pos1':self.__node.pos, 'pos2':self.__node.pos,
                  'color':self.__color, 'strokewidth':2}))
         self.__div.appendChild(self.__lines[0])
+
+    def __remove(self):
+        def removeLines():
+            for l in self.__lines:
+                l.unlink()
+            self.__lines = []
+
+        avg.fadeOut(self.__div, 200, removeLines)
 
 
 class DragItem(object):
@@ -598,7 +612,7 @@ class MtTron(AVGApp):
     def __stop(self, forceClearWins=False):
         def restart():
             for p in self.__activePlayers:
-                p.setDead()
+                p.setDead(False)
             avg.fadeIn(self.__winsDiv, 200)
             self.__winsDiv.sensitive = True
             if forceClearWins:
