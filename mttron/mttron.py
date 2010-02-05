@@ -35,43 +35,36 @@ g_exitButtons = True
 
 
 class Button(object):
-    def __init__(self, parentNode, color, icon, callback):
-        w, h = parentNode.size
+    def __init__(self, parent, color, icon, callback):
+        w, h = parent.size
         if icon == '^':
-            self.__node = g_player.createNode('polygon',
-                    {'pos':[(w, h), (0, h), (0, 0)]})
+            self.__node = avg.PolygonNode(pos=[(w, h), (0, h), (0, 0)])
         elif icon == '<':
-            self.__node = g_player.createNode('polygon',
-                    {'pos':[(GRID_SIZE, 0), (w, 0), (w, h - GRID_SIZE)]})
+            self.__node = avg.PolygonNode(pos=[(GRID_SIZE, 0), (w, 0), (w, h - GRID_SIZE)])
         elif icon == '>':
-            self.__node = g_player.createNode('polygon',
-                    {'pos':[(w - GRID_SIZE, h), (0, h), (0, GRID_SIZE)]})
+            self.__node = avg.PolygonNode(pos=[(w - GRID_SIZE, h), (0, h), (0, GRID_SIZE)])
         elif icon == '#':
             # WinCounter size + some offset
             size = Point2D(GRID_SIZE * 44, GRID_SIZE * 44)
-            self.__node = g_player.createNode('rect',
-                    {'pos':parentNode.size / 2 - size, 'size':size * 2})
-        elif icon == 'xr':
+            self.__node = avg.RectNode(pos=parent.size / 2 - size, size=size * 2)
+        elif icon[0] == 'x':
             size = Point2D(GRID_SIZE * 22, GRID_SIZE * 22)
-            self.__node = g_player.createNode('rect',
-                {'pos': parentNode.size / 2 - size + Point2D(GRID_SIZE * 88, 0),
-                'size':size * 2, 'angle': pi / 4.0})
-        elif icon == 'xl':
-            size = Point2D(GRID_SIZE * 22, GRID_SIZE * 22)
-            self.__node = g_player.createNode('rect',
-                    {'pos': parentNode.size / 2 - size - Point2D(GRID_SIZE * 88, 0),
-                    'size':size * 2, 'angle': pi / 4.0})
+            if icon[1] == 'l':
+                posOffset = -Point2D(GRID_SIZE * 88, 0)
+            else:
+                posOffset = Point2D(GRID_SIZE * 88, 0)
+            self.__node = avg.RectNode(pos=parent.size / 2 - size + posOffset,
+                    size=size * 2, angle=pi / 4.0)
         else:
             if icon == 'O':
-                self.__node = g_player.createNode('circle',
-                            {'pos':parentNode.size / 2, 'r':h / 4, 'strokewidth':2})
+                self.__node = avg.CircleNode(pos=parent.size / 2, r=h / 4,
+                        strokewidth=2)
             else:
-                self.__node = g_player.createNode('circle',
-                            {'pos':parentNode.size / 2, 'r':h / 2})
+                self.__node = avg.CircleNode(pos=parent.size / 2, r=h / 2)
         self.__node.color = color
         self.__node.opacity = 0
         self.__node.sensitive = False
-        parentNode.appendChild(self.__node)
+        parent.appendChild(self.__node)
 
         self.__cursorID = None
         self.__callback = callback
@@ -111,49 +104,48 @@ class Button(object):
         return True # stop event propagation
 
 
-class Controller(object):
-    def __init__(self, parentNode, player, joinCallback, pos, size, angle):
+class Controller(avg.DivNode):
+    def __init__(self, player, joinCallback, *args, **kwargs):
+        kwargs['pivot'] = (0, 0)
+        kwargs['crop'] = False
+        super(Controller, self).__init__(*args, **kwargs)
+
         self.__player = player
         self.__joinCallback = joinCallback
 
-        self.__node = g_player.createNode('div',
-                {'pos':pos, 'size':(size, size),
-                 'angle':angle, 'pivot':(0, 0), 'crop':False})
-        parentNode.appendChild(self.__node)
-
-        self.__joinButton = Button(self.__node, self.__player.color, 'o',
+        self.__joinButton = Button(self, self.__player.color, 'o',
                 self.__joinPlayer)
-        self.__leftButton = Button(self.__node, self.__player.color, '<',
+        self.__leftButton = Button(self, self.__player.color, '<',
                 lambda: self.__player.changeHeading(1))
-        self.__rightButton = Button(self.__node, self.__player.color, '>',
+        self.__rightButton = Button(self, self.__player.color, '>',
                 lambda: self.__player.changeHeading(-1))
 
         self.__player.registerController(self)
 
     def preStart(self, clearWins):
         self.__joinButton.activate()
-        self.__node.sensitive = True
+        self.sensitive = True
         self.__playerJoined = False
         if clearWins:
             self.__player.clearWins()
 
     def start(self):
         if self.__playerJoined:
-            self.__node.sensitive = True
+            self.sensitive = True
 
     def deactivateUnjoined(self):
         if not self.__playerJoined:
             self.__joinButton.deactivate()
-            self.__node.sensitive = False
+            self.sensitive = False
 
     def deactivate(self):
         self.__leftButton.deactivate()
         self.__rightButton.deactivate()
-        self.__node.sensitive = False
+        self.sensitive = False
 
     def __joinPlayer(self):
         self.__joinButton.deactivate()
-        self.__node.sensitive = False
+        self.sensitive = False
         self.__leftButton.activate()
         self.__rightButton.activate()
         self.__joinCallback(self.__player)
@@ -161,33 +153,32 @@ class Controller(object):
         self.__playerJoined = True
 
 
-class WinCounter(object):
-    def __init__(self, parentNode, size, angle, color):
+class WinCounter(avg.DivNode):
+    def __init__(self, color, *args, **kwargs):
         def triangle(p0, p1, p2):
-            t = g_player.createNode('polygon',
-                    {'pos':[p0, p1, p2], 'color':color, 'fillcolor':color})
-            self.__node.appendChild(t)
+            avg.PolygonNode(parent=self, pos=[p0, p1, p2], color=color, fillcolor=color)
+
+        kwargs['pos'] = kwargs['parent'].size / 2 + Point2D(GRID_SIZE, GRID_SIZE)
+        kwargs['pivot'] = (-GRID_SIZE, -GRID_SIZE)
+        kwargs['crop'] = False
+        super(WinCounter, self).__init__(*args, **kwargs)
 
         self.__count = 0
-        self.__node = g_player.createNode('div',
-                {'pos':parentNode.size / 2 + Point2D(GRID_SIZE, GRID_SIZE),
-                 'size':(size, size),
-                 'angle':angle, 'pivot':(-GRID_SIZE, -GRID_SIZE), 'crop':False})
-        parentNode.appendChild(self.__node)
 
-        s12 = size / 2
-        s14 = size / 4
-        s34 = size * 3 / 4
+        s1 = kwargs['size'].x
+        s12 = s1 / 2
+        s14 = s1 / 4
+        s34 = s1 * 3 / 4
         triangle((0, 0), (s14, s14), (0, s12))
         triangle((0, s12), (s14, s14), (s12, s12))
         triangle((s12, s12), (s14, s34), (0, s12))
-        triangle((0, s12), (s14, s34), (0, size))
-        triangle((0, size), (s14, s34), (s12, size))
-        triangle((s12, size), (s14, s34), (s12, s12))
-        triangle((s12, s12), (s34, s34), (s12, size))
-        triangle((s12, size), (s34, s34), (size, size))
+        triangle((0, s12), (s14, s34), (0, s1))
+        triangle((0, s1), (s14, s34), (s12, s1))
+        triangle((s12, s1), (s14, s34), (s12, s12))
+        triangle((s12, s12), (s34, s34), (s12, s1))
+        triangle((s12, s1), (s34, s34), (s1, s1))
 
-        resetButton = Button(self.__node, color, '^', self.reset)
+        resetButton = Button(self, color, '^', self.reset)
         resetButton.activate()
 
     @property
@@ -195,35 +186,33 @@ class WinCounter(object):
         return self.__count
 
     def inc(self):
-        self.__node.getChild(self.__count).fillopacity = 0.5
+        self.getChild(self.__count).fillopacity = 0.5
         self.__count += 1
 
     def reset(self):
         for i in range(0, self.__count):
-            self.__node.getChild(i).fillopacity = 0
+            self.getChild(i).fillopacity = 0
         self.__count = 0
 
 
-class Player(object):
-    def __init__(self, parentNode, color, startPos, startHeading,
-            winsDiv, winsSize, winsAngle):
+class Player(avg.DivNode):
+    def __init__(self, color, startPos, startHeading, winsDiv, winsSize, winsAngle,
+                *args, **kwargs):
+        kwargs['size'] = kwargs['parent'].size
+        kwargs['opacity'] = 0
+        super(Player, self).__init__(*args, **kwargs)
+
         self.__color = color
         self.__startPos = Point2D(startPos)
         self.__startHeading = Point2D(startHeading)
         self.__lines = []
 
-        self.__div = g_player.createNode('div', {'size':parentNode.size, 'opacity':0})
-        parentNode.appendChild(self.__div)
-        self.__node = g_player.createNode('div', {'pivot':(0, 0), 'crop':False})
-        self.__div.appendChild(self.__node)
-        self.__body = g_player.createNode('circle', {'color':self.__color})
-        self.__node.appendChild(self.__body)
-        self.__node.appendChild(g_player.createNode('line',
-                {'pos1':(-GRID_SIZE * 2, 0), 'pos2':(GRID_SIZE * 2, 0),
-                 'color':self.__color, 'strokewidth':3}))
-        self.__node.appendChild(g_player.createNode('line',
-                {'pos1':(0, -GRID_SIZE * 2), 'pos2':(0, GRID_SIZE * 2),
-                 'color':self.__color, 'strokewidth':3}))
+        self.__node = avg.DivNode(parent=self, pivot=(0, 0), crop=False)
+        self.__body = avg.CircleNode(parent=self.__node, color=self.__color)
+        avg.LineNode(parent=self.__node, pos1=(-GRID_SIZE * 2, 0), pos2=(GRID_SIZE * 2, 0),
+                color=self.__color, strokewidth=3)
+        avg.LineNode(parent=self.__node, pos1=(0, -GRID_SIZE * 2), pos2=(0, GRID_SIZE * 2),
+                color=self.__color, strokewidth=3)
 
         self.__nodeAnim = avg.ContinuousAnim(self.__node, 'angle', 0, 3.14)
         self.__explodeAnim = avg.ParallelAnim(
@@ -231,7 +220,8 @@ class Player(object):
                  avg.LinearAnim(self.__body, 'opacity', 200, 1, 0)),
                 None, self.__remove)
 
-        self.__wins = WinCounter(winsDiv, winsSize, winsAngle, self.__color)
+        self.__wins = WinCounter(self.__color,
+                size=winsSize, parent=winsDiv, angle=winsAngle)
         self.incWins = self.__wins.inc
         self.clearWins = self.__wins.reset
 
@@ -258,7 +248,7 @@ class Player(object):
         self.__heading = Point2D(self.__startHeading)
         self.__shield = None
         self.__nodeAnim.start()
-        avg.fadeIn(self.__div, 200)
+        avg.fadeIn(self, 200)
         self.__createLine()
 
     def setDead(self, explode=True):
@@ -294,8 +284,7 @@ class Player(object):
     def checkCrash(self, players, blocker):
         pos = self.__node.pos
         # check border
-        if pos.x == 0 or pos.y == 0 \
-                or pos.x == self.__div.width or pos.y == self.__div.height:
+        if pos.x == 0 or pos.y == 0 or pos.x == self.width or pos.y == self.height:
             return True
         # check blocker
         if blocker.checkCollision(pos):
@@ -323,10 +312,9 @@ class Player(object):
             self.__shield.grab()
 
     def __createLine(self):
-        self.__lines.insert(0, g_player.createNode('line',
-                {'pos1':self.__node.pos, 'pos2':self.__node.pos,
-                 'color':self.__color, 'strokewidth':2}))
-        self.__div.appendChild(self.__lines[0])
+        self.__lines.insert(0, avg.LineNode(parent=self,
+                pos1=self.__node.pos, pos2=self.__node.pos,
+                color=self.__color, strokewidth=2))
 
     def __remove(self):
         def removeLines():
@@ -334,29 +322,31 @@ class Player(object):
                 l.unlink()
             self.__lines = []
 
-        avg.fadeOut(self.__div, 200, removeLines)
+        avg.fadeOut(self, 200, removeLines)
 
 
-class DragItem(object):
-    def __init__(self, parentNode, iconNode):
+class DragItem(avg.DivNode):
+    def __init__(self, iconNode, *args, **kwargs):
         self._posOffset = Point2D(GRID_SIZE * 4, GRID_SIZE * 4)
+        w, h = kwargs['parent'].size
+        kwargs['size'] = self._posOffset * 2
+        super(DragItem, self).__init__(*args, **kwargs)
+
         self.__minPosX = int(-self._posOffset.x) + GRID_SIZE
-        self.__maxPosX = int(parentNode.size.x - self._posOffset.x)
+        self.__maxPosX = int(w - self._posOffset.x)
         self.__posX = range(self.__minPosX, self.__maxPosX, GRID_SIZE)
         self.__minPosY = int(-self._posOffset.y) + GRID_SIZE
-        self.__maxPosY = int(parentNode.size.y - self._posOffset.y)
+        self.__maxPosY = int(h - self._posOffset.y)
         self.__posY = range(self.__minPosY, self.__maxPosY, GRID_SIZE)
 
-        self._div = g_player.createNode('div', {'size':self._posOffset * 2})
-        parentNode.appendChild(self._div)
         self.__node = iconNode
         self.__node.opacity = 0
-        self._div.appendChild(self.__node)
+        self.appendChild(self.__node)
 
         self.__cursorID = None
-        self._div.setEventHandler(avg.CURSORDOWN, avg.MOUSE | avg.TOUCH, self._onDown)
-        self._div.setEventHandler(avg.CURSORUP, avg.MOUSE | avg.TOUCH, self.__onUp)
-        self._div.setEventHandler(avg.CURSORMOTION, avg.MOUSE | avg.TOUCH, self.__onMotion)
+        self.setEventHandler(avg.CURSORDOWN, avg.MOUSE | avg.TOUCH, self._onDown)
+        self.setEventHandler(avg.CURSORUP, avg.MOUSE | avg.TOUCH, self.__onUp)
+        self.setEventHandler(avg.CURSORMOTION, avg.MOUSE | avg.TOUCH, self.__onMotion)
 
     def activate(self):
         self.__active = True
@@ -366,12 +356,12 @@ class DragItem(object):
         self.__active = False
 
     def jump(self):
-        self._div.pos = (choice(self.__posX), choice(self.__posY))
+        self.pos = (choice(self.__posX), choice(self.__posY))
 
     def checkCollision(self, pos):
         if not self.__cursorID is None:
             return False # no collision when dragging
-        dist = self._div.pos + self._posOffset - pos
+        dist = self.pos + self._posOffset - pos
         if abs(dist.x) <= GRID_SIZE and abs(dist.y) <= GRID_SIZE:
             return True
         return False
@@ -386,14 +376,14 @@ class DragItem(object):
         if not self.__cursorID is None:
             return False
         self.__cursorID = event.cursorid
-        self._div.setEventCapture(self.__cursorID)
-        self.__dragOffset = event.pos - self._div.pos
+        self.setEventCapture(self.__cursorID)
+        self.__dragOffset = event.pos - self.pos
         return True
 
     def __onUp(self, event):
         if not self.__cursorID == event.cursorid:
             return False
-        self._div.releaseEventCapture(self.__cursorID)
+        self.releaseEventCapture(self.__cursorID)
         self.__cursorID = None
         return True
 
@@ -404,14 +394,14 @@ class DragItem(object):
         pos = Point2D(round(pos.x), round(pos.y)) * GRID_SIZE
         if self.__minPosX <= pos.x and pos.x < self.__maxPosX \
                 and self.__minPosY <= pos.y and pos.y < self.__maxPosY:
-            self._div.pos = pos
+            self.pos = pos
         return True
 
 
 class Shield(DragItem):
-    def __init__(self, parentNode):
-        icon = g_player.createNode('circle', {'r':GRID_SIZE * 2})
-        super(Shield, self).__init__(parentNode, icon)
+    def __init__(self, *args, **kwargs):
+        icon = avg.CircleNode(r=GRID_SIZE * 2)
+        super(Shield, self).__init__(icon, *args, **kwargs)
         icon.pos = self._posOffset
 
     def jump(self):
@@ -419,7 +409,7 @@ class Shield(DragItem):
         self.__isGrabbed = False
 
     def move(self, pos):
-        self._div.pos = pos - self._posOffset
+        self.pos = pos - self._posOffset
 
     def checkCollision(self, pos):
         if self.__isGrabbed:
@@ -436,29 +426,28 @@ class Shield(DragItem):
 
 
 class Blocker(DragItem):
-    def __init__(self, parentNode):
-        icon = g_player.createNode('rect',
-                {'size':(GRID_SIZE * 3, GRID_SIZE * 3),
-                 'color':'FF0000', 'fillcolor':'FF0000'})
-        super(Blocker, self).__init__(parentNode, icon)
+    def __init__(self, *args, **kwargs):
+        icon = avg.RectNode(size=(GRID_SIZE * 3, GRID_SIZE * 3),
+                color='FF0000', fillcolor='FF0000')
+        super(Blocker, self).__init__(icon, *args, **kwargs)
         icon.pos = self._posOffset - icon.size / 2
 
 
-class BgAnim(object):
-    def __init__(self, parentNode):
-        self.__maxX, self.__maxY = parentNode.size
+class BgAnim(avg.DivNode):
+    def __init__(self, *args, **kwargs):
+        size = kwargs['parent'].size
+        self.__maxX, self.__maxY = size
+        kwargs['pos'] = size / 2
+        kwargs['crop'] = False
+        kwargs['opacity'] = 0.2
+        super(BgAnim, self).__init__(*args, **kwargs)
+
+        avg.LineNode(parent=self, pos1=(-self.__maxX, 0), pos2=(self.__maxX, 0))
+        avg.LineNode(parent=self, pos1=(0, -self.__maxY), pos2=(0, self.__maxY))
+
         self.__heading = Point2D(randint(-1, 1), 0)
         if self.__heading.x == 0:
             self.__heading.y = choice([-1, 1])
-
-        self.__node = g_player.createNode('div',
-                {'pos':parentNode.size / 2, 'crop':False, 'opacity':0.2})
-        parentNode.appendChild(self.__node)
-        self.__node.appendChild(g_player.createNode('line',
-                {'pos1':(-self.__maxX, 0), 'pos2':(self.__maxX, 0)}))
-        self.__node.appendChild(g_player.createNode('line',
-                {'pos1':(0, -self.__maxY), 'pos2':(0, self.__maxY)}))
-
         self.__headingCountdown = randint(60, 120)
         self.__onFrameHandlerID = None
 
@@ -481,11 +470,12 @@ class BgAnim(object):
         else:
             self.__headingCountdown -= 1
 
-        self.__node.pos += self.__heading
-        if self.__node.pos.x == 0 or self.__node.pos.x == self.__maxX \
-                or self.__node.pos.y == 0 or self.__node.pos.y == self.__maxY:
+        self.pos += self.__heading
+        if self.pos.x == 0 or self.pos.x == self.__maxX \
+                or self.pos.y == 0 or self.pos.y == self.__maxY:
             self.__heading *= -1
-            self.__node.pos += self.__heading
+            self.pos += self.__heading
+
 
 class MtTron(AVGApp):
     multitouch = True
@@ -496,66 +486,57 @@ class MtTron(AVGApp):
                 floor((screenSize.x - BORDER_WIDTH * 2) / GRID_SIZE) * GRID_SIZE,
                 floor((screenSize.y - BORDER_WIDTH * 2) / GRID_SIZE) * GRID_SIZE)
 
-        self._parentNode.appendChild(g_player.createNode('rect',
-                {'size':screenSize,
-                 'opacity':0, 'fillcolor':'B00000', 'fillopacity':1}))
-        self._parentNode.appendChild(g_player.createNode('rect',
-                {'pos':(BORDER_WIDTH, BORDER_WIDTH), 'size':battlegroundSize,
-                 'opacity':0, 'fillcolor':'000000', 'fillopacity':1}))
+        avg.RectNode(parent=self._parentNode, size=screenSize,
+                opacity=0, fillcolor='B00000', fillopacity=1)
+        avg.RectNode(parent=self._parentNode,
+                pos=(BORDER_WIDTH, BORDER_WIDTH), size=battlegroundSize,
+                opacity=0, fillcolor='000000', fillopacity=1)
 
-        ctrlSize = GRID_SIZE * 42
-        gameDiv = g_player.createNode('div',
-                {'pos':(BORDER_WIDTH, BORDER_WIDTH), 'size':battlegroundSize})
-        self._parentNode.appendChild(gameDiv)
-        ctrlDiv = g_player.createNode('div',
-                {'pos':gameDiv.pos, 'size':gameDiv.size})
-        self._parentNode.appendChild(ctrlDiv)
-        self.__winsDiv = g_player.createNode('div',
-                {'size':gameDiv.size, 'opacity':0, 'crop':False, 'sensitive':False})
-        ctrlDiv.appendChild(self.__winsDiv)
+        gameDiv = avg.DivNode(parent=self._parentNode,
+                pos=(BORDER_WIDTH, BORDER_WIDTH), size=battlegroundSize)
+        ctrlDiv = avg.DivNode(parent=self._parentNode,
+                pos=gameDiv.pos, size=gameDiv.size)
+        self.__winsDiv = avg.DivNode(parent=ctrlDiv,
+                size=gameDiv.size, opacity=0, crop=False, sensitive=False)
 
         self.__bgAnims = []
         for i in xrange(0, 4):
-            self.__bgAnims.append(BgAnim(gameDiv))
+            self.__bgAnims.append(BgAnim(parent=gameDiv))
 
-        self.__shield = Shield(ctrlDiv)
-        self.__blocker = Blocker(ctrlDiv)
+        self.__shield = Shield(parent=ctrlDiv)
+        self.__blocker = Blocker(parent=ctrlDiv)
 
-        playerPos = ctrlSize + GRID_SIZE * 2
+        ctrlSize = Point2D(GRID_SIZE * 42, GRID_SIZE * 42)
+        playerPos = ctrlSize.x + GRID_SIZE * 2
         self.__controllers = []
         # 1st
-        p = Player(gameDiv, '00FF00',
-                (playerPos, playerPos), (GRID_SIZE, 0),
-                self.__winsDiv, ctrlSize, pi)
-        self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
-                (GRID_SIZE, GRID_SIZE), ctrlSize, 0))
+        p = Player('00FF00', (playerPos, playerPos), (GRID_SIZE, 0),
+                self.__winsDiv, ctrlSize, pi, parent=gameDiv)
+        self.__controllers.append(Controller(p, self.joinPlayer,
+                parent=ctrlDiv, pos=(GRID_SIZE, GRID_SIZE), size=ctrlSize, angle=0))
         # 2nd
-        p = Player(gameDiv, 'FF00FF',
-                (ctrlDiv.size.x - playerPos, playerPos), (-GRID_SIZE, 0),
-                self.__winsDiv, ctrlSize, -pi / 2)
-        self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
-                (ctrlDiv.size.x - GRID_SIZE, GRID_SIZE), ctrlSize, pi / 2))
+        p = Player('FF00FF', (ctrlDiv.size.x - playerPos, playerPos), (-GRID_SIZE, 0),
+                self.__winsDiv, ctrlSize, -pi / 2, parent=gameDiv)
+        self.__controllers.append(Controller(p, self.joinPlayer,
+                parent=ctrlDiv, pos=(ctrlDiv.size.x - GRID_SIZE, GRID_SIZE),
+                size=ctrlSize, angle=pi / 2))
         # 3rd
-        p = Player(gameDiv, '00FFFF',
-                (playerPos, ctrlDiv.size.y - playerPos), (GRID_SIZE, 0),
-                self.__winsDiv, ctrlSize, pi / 2)
-        self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
-                (GRID_SIZE, ctrlDiv.size.y - GRID_SIZE), ctrlSize, -pi / 2))
+        p = Player('00FFFF', (playerPos, ctrlDiv.size.y - playerPos), (GRID_SIZE, 0),
+                self.__winsDiv, ctrlSize, pi / 2, parent=gameDiv)
+        self.__controllers.append(Controller(p, self.joinPlayer,
+                parent=ctrlDiv, pos=(GRID_SIZE, ctrlDiv.size.y - GRID_SIZE),
+                size=ctrlSize, angle=-pi / 2))
         # 4th
-        p = Player(gameDiv, 'FFFF00',
-                (ctrlDiv.size.x - playerPos, ctrlDiv.size.y - playerPos),
-                (-GRID_SIZE, 0),
-                self.__winsDiv, ctrlSize, 0)
-        self.__controllers.append(Controller(ctrlDiv, p, self.joinPlayer,
-                (ctrlDiv.size.x - GRID_SIZE, ctrlDiv.size.y - GRID_SIZE),
-                ctrlSize, pi))
+        p = Player('FFFF00', (ctrlDiv.size.x - playerPos, ctrlDiv.size.y - playerPos),
+                (-GRID_SIZE, 0), self.__winsDiv, ctrlSize, 0, parent=gameDiv)
+        self.__controllers.append(Controller(p, self.joinPlayer,
+                parent=ctrlDiv, pos=(ctrlDiv.size.x - GRID_SIZE, ctrlDiv.size.y - GRID_SIZE),
+                size=ctrlSize, angle=pi))
 
         self.__startButton = Button(ctrlDiv, 'FF0000', 'O', self.__start)
         self.__clearButton = Button(ctrlDiv, 'FF0000', '#', self.__clearWins)
-        self.__countdownNode = g_player.createNode('circle',
-                {'pos':ctrlDiv.size / 2, 'r':ctrlDiv.size.y / 4,
-                 'opacity':0, 'sensitive':False})
-        ctrlDiv.appendChild(self.__countdownNode)
+        self.__countdownNode = avg.CircleNode(parent=ctrlDiv,
+                pos=ctrlDiv.size / 2, r=ctrlDiv.size.y / 4, opacity=0, sensitive=False)
 
         if g_exitButtons:
             Button(self.__winsDiv, 'FF0000', 'xl', self.leave).activate()
