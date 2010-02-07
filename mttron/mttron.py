@@ -517,11 +517,13 @@ class BgAnim(avg.DivNode):
         self.__onFrameHandlerID = None
 
     def start(self):
+        assert self.__onFrameHandlerID is None
         self.__onFrameHandlerID = g_player.setOnFrameHandler(self.__onFrame)
 
     def stop(self):
         assert self.__onFrameHandlerID is not None
         g_player.clearInterval(self.__onFrameHandlerID)
+        self.__onFrameHandlerID = None
 
     def __onFrame(self):
         if self.__headingCountdown == 0:
@@ -628,11 +630,13 @@ class MtTron(AVGApp):
             self.__startButton.activate()
 
     def _enter(self):
+        self.__ctrlDiv.sensitive = True
         for bga in self.__bgAnims:
             bga.start()
         self.__activateIdleTimer()
 
     def _leave(self):
+        self.__ctrlDiv.sensitive = False
         for bga in self.__bgAnims:
             bga.stop()
         self.__deactivateIdleTimer()
