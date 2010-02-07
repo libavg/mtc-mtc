@@ -19,13 +19,16 @@
 # along with mttron. If not, see <http://www.gnu.org/licenses/>.
 
 from libavg import avg, AVGApp, Point2D
+from libavg.AVGAppUtil import getMediaDir
 from math import floor, pi
 from random import choice, randint
+from cPickle import load
 
 
 BORDER_WIDTH = 42
 GRID_SIZE = 4
-
+IDLE_TIMEOUT = 10000
+PLAYER_COLORS = ['00FF00', 'FF00FF', '00FFFF', 'FFFF00']
 g_player = avg.Player.get()
 g_exitButtons = True
 
@@ -94,7 +97,7 @@ class Button(object):
 
         avg.LinearAnim(self.__node, 'fillopacity', 200, 1, 0.2).start() # libavg-r4503
         self.__callback()
-        return True # stop event propagation
+        return False # dispatch event further (for idle timer reset)
 
     def __onUp(self, event):
         if not self.__cursorID == event.cursorid:
@@ -196,23 +199,22 @@ class WinCounter(avg.DivNode):
 
 
 class Player(avg.DivNode):
-    def __init__(self, color, startPos, startHeading, winsDiv, winsSize, winsAngle,
-                *args, **kwargs):
-        kwargs['size'] = kwargs['parent'].size
+    def __init__(self, color, startPos, startHeading, *args, **kwargs):
         kwargs['opacity'] = 0
+        kwargs['sensitive'] = False
         super(Player, self).__init__(*args, **kwargs)
 
-        self.__color = color
+        self._color = color
         self.__startPos = Point2D(startPos)
         self.__startHeading = Point2D(startHeading)
-        self.__lines = []
+        self._lines = []
 
         self.__node = avg.DivNode(parent=self, pivot=(0, 0), crop=False)
-        self.__body = avg.CircleNode(parent=self.__node, color=self.__color)
+        self.__body = avg.CircleNode(parent=self.__node, color=self._color)
         avg.LineNode(parent=self.__node, pos1=(-GRID_SIZE * 2, 0), pos2=(GRID_SIZE * 2, 0),
-                color=self.__color, strokewidth=3)
+                color=self._color, strokewidth=3)
         avg.LineNode(parent=self.__node, pos1=(0, -GRID_SIZE * 2), pos2=(0, GRID_SIZE * 2),
-                color=self.__color, strokewidth=3)
+                color=self._color, strokewidth=3)
 
         self.__nodeAnim = avg.ContinuousAnim(self.__node, 'angle', 0, 3.14)
         self.__explodeAnim = avg.ParallelAnim(
@@ -220,18 +222,77 @@ class Player(avg.DivNode):
                  avg.LinearAnim(self.__body, 'opacity', 200, 1, 0)),
                 None, self.__remove)
 
-        self.__wins = WinCounter(self.__color,
+    @property
+    def _pos(self):
+        return self.__node.pos
+
+    def _setReady(self):
+        self.__node.pos = self.__startPos
+        self.__heading = Point2D(self.__startHeading)
+        self.__body.r = GRID_SIZE
+        self.__body.strokewidth = 1
+        self.__body.opacity = 1
+        self.__nodeAnim.start()
+        avg.fadeIn(self, 200)
+        self.__createLine()
+
+    def _setDead(self, explode):
+        self.__nodeAnim.abort()
+        if explode:
+            self.__body.strokewidth = 3
+            self.__explodeAnim.start()
+        else:
+            self.__remove()
+
+    def _step(self):
+        self.__node.pos += self.__heading
+        # lines always run rightwards or downwards (for easier collision checking)
+        if self.__heading.x < 0 or self.__heading.y < 0:
+            self._lines[0].pos1 = self.__node.pos
+        else:
+            self._lines[0].pos2 = self.__node.pos
+
+    def _changeHeading(self, heading):
+        if self.__heading.x == 0:
+            self.__heading.x = heading * self.__heading.y
+            self.__heading.y = 0
+        else:
+            self.__heading.y = -heading * self.__heading.x
+            self.__heading.x = 0
+        self.__createLine()
+
+    def __createLine(self):
+        self._lines.insert(0, avg.LineNode(parent=self,
+                pos1=self.__node.pos, pos2=self.__node.pos,
+                color=self._color, strokewidth=2))
+
+    def __remove(self):
+        def removeLines():
+            for l in self._lines:
+                l.unlink()
+            self._lines = []
+
+        avg.fadeOut(self, 200, removeLines)
+
+
+class RealPlayer(Player):
+    def __init__(self, color, startPos, startHeading, winsDiv, winsSize, winsAngle,
+                *args, **kwargs):
+        kwargs['size'] = kwargs['parent'].size
+        super(RealPlayer, self).__init__(color, startPos, startHeading, *args, **kwargs)
+
+        self.__wins = WinCounter(self._color,
                 size=winsSize, parent=winsDiv, angle=winsAngle)
         self.incWins = self.__wins.inc
         self.clearWins = self.__wins.reset
 
     @property
     def color(self):
-        return self.__color
+        return self._color
 
     @property
     def lines(self):
-        return self.__lines
+        return self._lines
 
     @property
     def wins(self):
@@ -241,48 +302,25 @@ class Player(avg.DivNode):
         self.__controller = controller
 
     def setReady(self):
-        self.__node.pos = self.__startPos
-        self.__body.r = GRID_SIZE
-        self.__body.strokewidth = 1
-        self.__body.opacity = 1
-        self.__heading = Point2D(self.__startHeading)
+        super(RealPlayer, self)._setReady()
         self.__shield = None
-        self.__nodeAnim.start()
-        avg.fadeIn(self, 200)
-        self.__createLine()
 
     def setDead(self, explode=True):
+        super(RealPlayer, self)._setDead(explode)
         if not self.__shield is None:
             self.__shield.jump()
         self.__controller.deactivate()
-        self.__nodeAnim.abort()
-        if explode:
-            self.__body.strokewidth = 3
-            self.__explodeAnim.start()
-        else:
-            self.__remove()
 
     def step(self):
-        self.__node.pos += self.__heading
+        super(RealPlayer, self)._step()
         if not self.__shield is None:
-            self.__shield.move(self.__node.pos)
-        # lines always run rightwards or downwards (for easier collision checking)
-        if self.__heading.x < 0 or self.__heading.y < 0:
-            self.__lines[0].pos1 = self.__node.pos
-        else:
-            self.__lines[0].pos2 = self.__node.pos
+            self.__shield.move(self._pos)
 
     def changeHeading(self, heading):
-        if self.__heading.x == 0:
-            self.__heading.x = heading * self.__heading.y
-            self.__heading.y = 0
-        else:
-            self.__heading.y = -heading * self.__heading.x
-            self.__heading.x = 0
-        self.__createLine()
+        super(RealPlayer, self)._changeHeading(heading)
 
     def checkCrash(self, players, blocker):
-        pos = self.__node.pos
+        pos = self._pos
         # check border
         if pos.x == 0 or pos.y == 0 or pos.x == self.width or pos.y == self.height:
             return True
@@ -307,22 +345,49 @@ class Player(avg.DivNode):
         return False
 
     def checkShield(self, shield):
-        if shield.checkCollision(self.__node.pos):
+        if shield.checkCollision(self._pos):
             self.__shield = shield
             self.__shield.grab()
 
-    def __createLine(self):
-        self.__lines.insert(0, avg.LineNode(parent=self,
-                pos1=self.__node.pos, pos2=self.__node.pos,
-                color=self.__color, strokewidth=2))
 
-    def __remove(self):
-        def removeLines():
-            for l in self.__lines:
-                l.unlink()
-            self.__lines = []
+class IdlePlayer(Player):
+    def __init__(self, color, demoData, *args, **kwargs):
+        kwargs['crop'] = False
+        startPos = Point2D(demoData['startPos']) * GRID_SIZE
+        super(IdlePlayer, self).__init__(color, startPos, (0, -GRID_SIZE),
+                *args, **kwargs)
+        self.__route = demoData['route']
 
-        avg.fadeOut(self, 200, removeLines)
+    def setReady(self):
+        super(IdlePlayer, self)._setReady()
+        self.__isRunning = True
+        self.__routeIter = iter(self.__route)
+        self.__currentPath = self.__routeIter.next()
+        self.__stepCounter = self.__currentPath[0] + 1
+        self.__respawnTimoutID = None
+
+    def setDead(self, restart=False):
+        if self.__isRunning:
+            super(IdlePlayer, self)._setDead(restart)
+            self.__isRunning = False
+        elif not self.__respawnTimoutID is None:
+            g_player.clearInterval(self.__respawnTimoutID)
+        if restart:
+            self.__respawnTimoutID = g_player.setTimeout(randint(600, 1200), self.setReady)
+
+    def step(self):
+        if not self.__isRunning:
+            return
+        self.__stepCounter -= 1
+        if self.__stepCounter == 0:
+            if not self.__currentPath[1] == 0:
+                super(IdlePlayer, self)._changeHeading(self.__currentPath[1])
+                self.__currentPath = self.__routeIter.next()
+                self.__stepCounter = self.__currentPath[0]
+            else:
+                self.setDead(True)
+                return
+        super(IdlePlayer, self)._step()
 
 
 class DragItem(avg.DivNode):
@@ -482,6 +547,7 @@ class MtTron(AVGApp):
 
     def init(self):
         screenSize = self._parentNode.size
+        battlegroundPos = Point2D(BORDER_WIDTH, BORDER_WIDTH)
         battlegroundSize = Point2D(
                 floor((screenSize.x - BORDER_WIDTH * 2) / GRID_SIZE) * GRID_SIZE,
                 floor((screenSize.y - BORDER_WIDTH * 2) / GRID_SIZE) * GRID_SIZE)
@@ -489,54 +555,63 @@ class MtTron(AVGApp):
         avg.RectNode(parent=self._parentNode, size=screenSize,
                 opacity=0, fillcolor='B00000', fillopacity=1)
         avg.RectNode(parent=self._parentNode,
-                pos=(BORDER_WIDTH, BORDER_WIDTH), size=battlegroundSize,
+                pos=battlegroundPos, size=battlegroundSize,
                 opacity=0, fillcolor='000000', fillopacity=1)
 
-        gameDiv = avg.DivNode(parent=self._parentNode,
-                pos=(BORDER_WIDTH, BORDER_WIDTH), size=battlegroundSize)
-        ctrlDiv = avg.DivNode(parent=self._parentNode,
-                pos=gameDiv.pos, size=gameDiv.size)
-        self.__winsDiv = avg.DivNode(parent=ctrlDiv,
-                size=gameDiv.size, opacity=0, crop=False, sensitive=False)
+        battleground = avg.DivNode(parent=self._parentNode,
+                pos=battlegroundPos, size=battlegroundSize)
 
         self.__bgAnims = []
-        for i in xrange(0, 4):
-            self.__bgAnims.append(BgAnim(parent=gameDiv))
+        for i in xrange(4):
+            self.__bgAnims.append(BgAnim(parent=battleground))
+        self.__initIdleDemo(battleground)
 
-        self.__shield = Shield(parent=ctrlDiv)
-        self.__blocker = Blocker(parent=ctrlDiv)
+        self.__gameDiv = avg.DivNode(parent=battleground, size=battlegroundSize)
+        self.__ctrlDiv = avg.DivNode(parent=self.__gameDiv, size=battlegroundSize)
+        self.__winsDiv = avg.DivNode(parent=self.__ctrlDiv, size=battlegroundSize,
+                opacity=0, sensitive=False)
+
+        self.__shield = Shield(parent=self.__ctrlDiv)
+        self.__blocker = Blocker(parent=self.__ctrlDiv)
 
         ctrlSize = Point2D(GRID_SIZE * 42, GRID_SIZE * 42)
         playerPos = ctrlSize.x + GRID_SIZE * 2
         self.__controllers = []
         # 1st
-        p = Player('00FF00', (playerPos, playerPos), (GRID_SIZE, 0),
-                self.__winsDiv, ctrlSize, pi, parent=gameDiv)
+        p = RealPlayer(PLAYER_COLORS[0],
+                (playerPos, playerPos), (GRID_SIZE, 0),
+                self.__winsDiv, ctrlSize, pi, parent=self.__gameDiv)
         self.__controllers.append(Controller(p, self.joinPlayer,
-                parent=ctrlDiv, pos=(GRID_SIZE, GRID_SIZE), size=ctrlSize, angle=0))
+                parent=self.__ctrlDiv, pos=(GRID_SIZE, GRID_SIZE), size=ctrlSize,
+                angle=0))
         # 2nd
-        p = Player('FF00FF', (ctrlDiv.size.x - playerPos, playerPos), (-GRID_SIZE, 0),
-                self.__winsDiv, ctrlSize, -pi / 2, parent=gameDiv)
+        p = RealPlayer(PLAYER_COLORS[1],
+                (self.__ctrlDiv.size.x - playerPos, playerPos), (-GRID_SIZE, 0),
+                self.__winsDiv, ctrlSize, -pi / 2, parent=self.__gameDiv)
         self.__controllers.append(Controller(p, self.joinPlayer,
-                parent=ctrlDiv, pos=(ctrlDiv.size.x - GRID_SIZE, GRID_SIZE),
+                parent=self.__ctrlDiv, pos=(self.__ctrlDiv.size.x - GRID_SIZE, GRID_SIZE),
                 size=ctrlSize, angle=pi / 2))
         # 3rd
-        p = Player('00FFFF', (playerPos, ctrlDiv.size.y - playerPos), (GRID_SIZE, 0),
-                self.__winsDiv, ctrlSize, pi / 2, parent=gameDiv)
+        p = RealPlayer(PLAYER_COLORS[2],
+                (playerPos, self.__ctrlDiv.size.y - playerPos), (GRID_SIZE, 0),
+                self.__winsDiv, ctrlSize, pi / 2, parent=self.__gameDiv)
         self.__controllers.append(Controller(p, self.joinPlayer,
-                parent=ctrlDiv, pos=(GRID_SIZE, ctrlDiv.size.y - GRID_SIZE),
+                parent=self.__ctrlDiv, pos=(GRID_SIZE, self.__ctrlDiv.size.y - GRID_SIZE),
                 size=ctrlSize, angle=-pi / 2))
         # 4th
-        p = Player('FFFF00', (ctrlDiv.size.x - playerPos, ctrlDiv.size.y - playerPos),
-                (-GRID_SIZE, 0), self.__winsDiv, ctrlSize, 0, parent=gameDiv)
+        p = RealPlayer(PLAYER_COLORS[3],
+                (self.__ctrlDiv.size.x - playerPos, self.__ctrlDiv.size.y - playerPos),
+                (-GRID_SIZE, 0), self.__winsDiv, ctrlSize, 0, parent=self.__gameDiv)
         self.__controllers.append(Controller(p, self.joinPlayer,
-                parent=ctrlDiv, pos=(ctrlDiv.size.x - GRID_SIZE, ctrlDiv.size.y - GRID_SIZE),
+                parent=self.__ctrlDiv,
+                pos=(self.__ctrlDiv.size.x - GRID_SIZE, self.__ctrlDiv.size.y - GRID_SIZE),
                 size=ctrlSize, angle=pi))
 
-        self.__startButton = Button(ctrlDiv, 'FF0000', 'O', self.__start)
-        self.__clearButton = Button(ctrlDiv, 'FF0000', '#', self.__clearWins)
-        self.__countdownNode = avg.CircleNode(parent=ctrlDiv,
-                pos=ctrlDiv.size / 2, r=ctrlDiv.size.y / 4, opacity=0, sensitive=False)
+        self.__startButton = Button(self.__ctrlDiv, 'FF0000', 'O', self.__start)
+        self.__clearButton = Button(self.__ctrlDiv, 'FF0000', '#', self.__clearWins)
+        self.__countdownNode = avg.CircleNode(parent=self.__ctrlDiv,
+                pos=self.__ctrlDiv.size / 2, r=self.__ctrlDiv.size.y / 4,
+                opacity=0, sensitive=False)
 
         if g_exitButtons:
             Button(self.__winsDiv, 'FF0000', 'xl', self.leave).activate()
@@ -555,10 +630,12 @@ class MtTron(AVGApp):
     def _enter(self):
         for bga in self.__bgAnims:
             bga.start()
+        self.__activateIdleTimer()
 
     def _leave(self):
         for bga in self.__bgAnims:
             bga.stop()
+        self.__deactivateIdleTimer()
 
     def __preStart(self, clearWins=False):
         self.__activePlayers = []
@@ -573,7 +650,7 @@ class MtTron(AVGApp):
             avg.LinearAnim(self.__countdownNode, 'fillopacity', 1000, 1, 0).start()
             for c in self.__controllers:
                 c.start()
-            self.__onFrameHandlerID = g_player.setOnFrameHandler(self.__onFrame)
+            self.__onFrameHandlerID = g_player.setOnFrameHandler(self.__onGameFrame)
         def goYellow():
             self.__countdownNode.fillcolor = 'FFFF00'
             avg.LinearAnim(self.__countdownNode, 'fillopacity', 1000, 1, 0, False,
@@ -585,6 +662,7 @@ class MtTron(AVGApp):
             avg.LinearAnim(self.__countdownNode, 'fillopacity', 1000, 1, 0, False,
                     None, goYellow).start()
 
+        self.__deactivateIdleTimer()
         self.__startButton.deactivate()
         for c in self.__controllers:
             c.deactivateUnjoined()
@@ -596,6 +674,7 @@ class MtTron(AVGApp):
                 p.setDead(False)
             avg.fadeIn(self.__winsDiv, 200)
             self.__winsDiv.sensitive = True
+            self.__activateIdleTimer()
             if forceClearWins:
                 self.__clearButton.activate()
             else:
@@ -610,7 +689,7 @@ class MtTron(AVGApp):
         self.__clearButton.deactivate()
         self.__preStart(True)
 
-    def __onFrame(self):
+    def __onGameFrame(self):
         for p in self.__activePlayers:
             p.step()
 
@@ -633,6 +712,65 @@ class MtTron(AVGApp):
         else:
             for p in self.__activePlayers:
                 p.checkShield(self.__shield)
+
+    def __initIdleDemo(self, parent):
+        fp = open(getMediaDir(__file__, 'data/idledemo.pickle'), 'r')
+        demoData = load(fp)
+        fp.close()
+
+        idleDiv1 = avg.DivNode(parent=parent,
+                pos=parent.size / 2 - Point2D(0, GRID_SIZE * 4), crop=False)
+        idleDiv2 = avg.DivNode(parent=parent,
+                pos=parent.size / 2 + Point2D(0, GRID_SIZE * 4), crop=False,
+                pivot=(0, 0), angle=pi)
+        self.__idlePlayers = []
+        for i in xrange(4):
+            self.__idlePlayers.append(IdlePlayer(PLAYER_COLORS[i], demoData[i],
+                    parent=idleDiv1))
+            self.__idlePlayers.append(IdlePlayer(PLAYER_COLORS[i], demoData[i],
+                    parent=idleDiv2))
+
+        self.__idleTimeoutID = None
+
+    def __activateIdleTimer(self):
+        assert self.__idleTimeoutID is None
+        self.__idleTimeoutID = g_player.setTimeout(IDLE_TIMEOUT, self.__startIdleDemo)
+        self.__ctrlDiv.setEventHandler(avg.CURSORDOWN, avg.MOUSE | avg.TOUCH,
+                lambda e:self.__restartIdleTimer())
+
+    def __deactivateIdleTimer(self):
+        assert self.__idleTimeoutID is not None
+        g_player.clearInterval(self.__idleTimeoutID)
+        self.__idleTimeoutID = None
+        self.__ctrlDiv.setEventHandler(avg.CURSORDOWN, avg.MOUSE | avg.TOUCH, None)
+
+    def __restartIdleTimer(self):
+        if not self.__idleTimeoutID is None:
+            g_player.clearInterval(self.__idleTimeoutID)
+        self.__idleTimeoutID = g_player.setTimeout(IDLE_TIMEOUT, self.__startIdleDemo)
+
+    def __startIdleDemo(self):
+        self.__idleTimeoutID = None
+        avg.fadeOut(self.__gameDiv, 200)
+        self.__ctrlDiv.sensitive = False
+        for p in self.__idlePlayers:
+            p.setReady()
+        self.__gameDiv.setEventHandler(avg.CURSORDOWN, avg.MOUSE | avg.TOUCH,
+                lambda e:self.__stopIdleDemo())
+        self.__onFrameHandlerID = g_player.setOnFrameHandler(self.__onIdleFrame)
+
+    def __stopIdleDemo(self):
+        self.__gameDiv.setEventHandler(avg.CURSORDOWN, avg.MOUSE | avg.TOUCH, None)
+        g_player.clearInterval(self.__onFrameHandlerID)
+        avg.fadeIn(self.__gameDiv, 200)
+        self.__ctrlDiv.sensitive = True
+        for p in self.__idlePlayers:
+            p.setDead()
+        self.__restartIdleTimer()
+
+    def __onIdleFrame(self):
+        for p in self.__idlePlayers:
+            p.step()
 
 
 if __name__ == '__main__':
