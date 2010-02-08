@@ -181,8 +181,8 @@ class WinCounter(avg.DivNode):
         triangle((s12, s12), (s34, s34), (s12, s1))
         triangle((s12, s1), (s34, s34), (s1, s1))
 
-        resetButton = Button(self, color, '^', self.reset)
-        resetButton.activate()
+        resetButton = Button(self, color, '^', lambda: self.reset(True)).activate()
+        self.__clearSound = avg.SoundNode(parent=self, href='clear.wav')
 
     @property
     def count(self):
@@ -192,7 +192,9 @@ class WinCounter(avg.DivNode):
         self.getChild(self.__count).fillopacity = 0.5
         self.__count += 1
 
-    def reset(self):
+    def reset(self, playSound=False):
+        if playSound:
+            self.__clearSound.play()
         for i in range(0, self.__count):
             self.getChild(i).fillopacity = 0
         self.__count = 0
@@ -286,6 +288,11 @@ class RealPlayer(Player):
         self.incWins = self.__wins.inc
         self.clearWins = self.__wins.reset
 
+        self.__joinSound = avg.SoundNode(parent=self, href='join.wav')
+        self.__crashSound = avg.SoundNode(parent=self, href='crash.wav')
+        self.__shieldSound = avg.SoundNode(parent=self, href='shield.wav')
+        self.__crossSound = avg.SoundNode(parent=self, href='cross.wav')
+
     @property
     def color(self):
         return self._color
@@ -302,10 +309,13 @@ class RealPlayer(Player):
         self.__controller = controller
 
     def setReady(self):
+        self.__joinSound.play()
         super(RealPlayer, self)._setReady()
         self.__shield = None
 
     def setDead(self, explode=True):
+        if explode:
+            self.__crashSound.play()
         super(RealPlayer, self)._setDead(explode)
         if not self.__shield is None:
             self.__shield.jump()
@@ -340,12 +350,14 @@ class RealPlayer(Player):
                         and l.pos1.x <= pos.x and pos.x <= l.pos2.x:
                     if self.__shield is None:
                         return True
+                    self.__crossSound.play()
                     self.__shield.jump()
                     self.__shield = None
         return False
 
     def checkShield(self, shield):
         if shield.checkCollision(self._pos):
+            self.__shieldSound.play()
             self.__shield = shield
             self.__shield.grab()
 
@@ -548,6 +560,7 @@ class MtTron(AVGApp):
     multitouch = True
 
     def init(self):
+        self._parentNode.mediadir = getMediaDir(__file__)
         screenSize = self._parentNode.size
         battlegroundPos = Point2D(BORDER_WIDTH, BORDER_WIDTH)
         battlegroundSize = Point2D(
@@ -619,6 +632,11 @@ class MtTron(AVGApp):
             Button(self.__winsDiv, 'FF0000', 'xl', self.leave).activate()
             Button(self.__winsDiv, 'FF0000', 'xr', self.leave).activate()
 
+        self.__redSound = avg.SoundNode(parent=battleground, href='red.wav')
+        self.__yellowSound = avg.SoundNode(parent=battleground, href='yellow.wav')
+        self.__greenSound = avg.SoundNode(parent=battleground, href='green.wav')
+        self.__startSound = avg.SoundNode(parent=battleground, href='start.wav')
+
         self.__preStart()
 
     def joinPlayer(self, player):
@@ -630,6 +648,7 @@ class MtTron(AVGApp):
             self.__startButton.activate()
 
     def _enter(self):
+        self.__startSound.play()
         self.__ctrlDiv.sensitive = True
         for bga in self.__bgAnims:
             bga.start()
@@ -650,18 +669,21 @@ class MtTron(AVGApp):
 
     def __start(self):
         def goGreen():
+            self.__greenSound.play()
             self.__countdownNode.fillcolor = '00FF00'
             avg.LinearAnim(self.__countdownNode, 'fillopacity', 1000, 1, 0).start()
             for c in self.__controllers:
                 c.start()
             self.__onFrameHandlerID = g_player.setOnFrameHandler(self.__onGameFrame)
         def goYellow():
+            self.__yellowSound.play()
             self.__countdownNode.fillcolor = 'FFFF00'
             avg.LinearAnim(self.__countdownNode, 'fillopacity', 1000, 1, 0, False,
                     None, goGreen).start()
             self.__shield.activate()
             self.__blocker.activate()
         def goRed():
+            self.__redSound.play()
             self.__countdownNode.fillcolor = 'FF0000'
             avg.LinearAnim(self.__countdownNode, 'fillopacity', 1000, 1, 0, False,
                     None, goYellow).start()
@@ -690,6 +712,7 @@ class MtTron(AVGApp):
         g_player.setTimeout(2000, restart)
 
     def __clearWins(self):
+        self.__startSound.play()
         self.__clearButton.deactivate()
         self.__preStart(True)
 
