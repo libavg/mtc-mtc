@@ -404,7 +404,7 @@ class IdlePlayer(Player):
 
 class DragItem(avg.DivNode):
     def __init__(self, iconNode, *args, **kwargs):
-        self._posOffset = Point2D(GRID_SIZE * 4, GRID_SIZE * 4)
+        self._posOffset = Point2D(GRID_SIZE * 8, GRID_SIZE * 8)
         w, h = kwargs['parent'].size
         kwargs['size'] = self._posOffset * 2
         super(DragItem, self).__init__(*args, **kwargs)
