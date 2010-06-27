@@ -110,7 +110,6 @@ class Button(object):
 class Controller(avg.DivNode):
     def __init__(self, player, joinCallback, *args, **kwargs):
         kwargs['pivot'] = (0, 0)
-        kwargs['crop'] = False
         super(Controller, self).__init__(*args, **kwargs)
 
         self.__player = player
@@ -163,7 +162,6 @@ class WinCounter(avg.DivNode):
 
         kwargs['pos'] = kwargs['parent'].size / 2 + Point2D(GRID_SIZE, GRID_SIZE)
         kwargs['pivot'] = (-GRID_SIZE, -GRID_SIZE)
-        kwargs['crop'] = False
         super(WinCounter, self).__init__(*args, **kwargs)
 
         self.__count = 0
@@ -211,7 +209,7 @@ class Player(avg.DivNode):
         self.__startHeading = Point2D(startHeading)
         self._lines = []
 
-        self.__node = avg.DivNode(parent=self, pivot=(0, 0), crop=False)
+        self.__node = avg.DivNode(parent=self, pivot=(0, 0))
         self.__body = avg.CircleNode(parent=self.__node, color=self._color)
         avg.LineNode(parent=self.__node, pos1=(-GRID_SIZE * 2, 0), pos2=(GRID_SIZE * 2, 0),
                 color=self._color, strokewidth=3)
@@ -364,7 +362,6 @@ class RealPlayer(Player):
 
 class IdlePlayer(Player):
     def __init__(self, color, demoData, *args, **kwargs):
-        kwargs['crop'] = False
         startPos = Point2D(demoData['startPos']) * GRID_SIZE
         super(IdlePlayer, self).__init__(color, startPos, (0, -GRID_SIZE),
                 *args, **kwargs)
@@ -515,7 +512,6 @@ class BgAnim(avg.DivNode):
         size = kwargs['parent'].size
         self.__maxX, self.__maxY = size
         kwargs['pos'] = size / 2
-        kwargs['crop'] = False
         kwargs['opacity'] = 0.2
         super(BgAnim, self).__init__(*args, **kwargs)
 
@@ -574,7 +570,7 @@ class MtTron(AVGApp):
                 opacity=0, fillcolor='000000', fillopacity=1)
 
         battleground = avg.DivNode(parent=self._parentNode,
-                pos=battlegroundPos, size=battlegroundSize)
+                pos=battlegroundPos, size=battlegroundSize, crop=True)
 
         self.__bgAnims = []
         for i in xrange(4):
@@ -746,9 +742,9 @@ class MtTron(AVGApp):
         fp.close()
 
         idleDiv1 = avg.DivNode(parent=parent,
-                pos=parent.size / 2 - Point2D(0, GRID_SIZE * 4), crop=False)
+                pos=parent.size / 2 - Point2D(0, GRID_SIZE * 4))
         idleDiv2 = avg.DivNode(parent=parent,
-                pos=parent.size / 2 + Point2D(0, GRID_SIZE * 4), crop=False,
+                pos=parent.size / 2 + Point2D(0, GRID_SIZE * 4),
                 pivot=(0, 0), angle=pi)
         self.__idlePlayers = []
         for i in xrange(4):
