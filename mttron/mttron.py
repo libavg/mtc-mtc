@@ -25,12 +25,14 @@ from random import choice, randint
 from cPickle import load
 
 
-BORDER_WIDTH = 42
-GRID_SIZE = 4
+BASE_GRIDSIZE = Point2D(320, 180)
+BASE_BORDERWIDTH = 10
 IDLE_TIMEOUT = 10000
 PLAYER_COLORS = ['00FF00', 'FF00FF', '00FFFF', 'FFFF00']
+
 g_player = avg.Player.get()
 g_exitButtons = True
+g_gridSize = 4
 
 
 #def logMsg(msg):
@@ -43,19 +45,19 @@ class Button(object):
         if icon == '^':
             self.__node = avg.PolygonNode(pos=[(w, h), (0, h), (0, 0)])
         elif icon == '<':
-            self.__node = avg.PolygonNode(pos=[(GRID_SIZE, 0), (w, 0), (w, h - GRID_SIZE)])
+            self.__node = avg.PolygonNode(pos=[(g_gridSize, 0), (w, 0), (w, h - g_gridSize)])
         elif icon == '>':
-            self.__node = avg.PolygonNode(pos=[(w - GRID_SIZE, h), (0, h), (0, GRID_SIZE)])
+            self.__node = avg.PolygonNode(pos=[(w - g_gridSize, h), (0, h), (0, g_gridSize)])
         elif icon == '#':
             # WinCounter size + some offset
-            size = Point2D(GRID_SIZE * 44, GRID_SIZE * 44)
+            size = Point2D(g_gridSize * 44, g_gridSize * 44)
             self.__node = avg.RectNode(pos=parent.size / 2 - size, size=size * 2)
         elif icon[0] == 'x':
-            size = Point2D(GRID_SIZE * 22, GRID_SIZE * 22)
+            size = Point2D(g_gridSize * 22, g_gridSize * 22)
             if icon[1] == 'l':
-                posOffset = -Point2D(GRID_SIZE * 88, 0)
+                posOffset = -Point2D(g_gridSize * 88, 0)
             else:
-                posOffset = Point2D(GRID_SIZE * 88, 0)
+                posOffset = Point2D(g_gridSize * 88, 0)
             self.__node = avg.RectNode(pos=parent.size / 2 - size + posOffset,
                     size=size * 2, angle=pi / 4.0)
         else:
@@ -160,8 +162,8 @@ class WinCounter(avg.DivNode):
         def triangle(p0, p1, p2):
             avg.PolygonNode(parent=self, pos=[p0, p1, p2], color=color, fillcolor=color)
 
-        kwargs['pos'] = kwargs['parent'].size / 2 + Point2D(GRID_SIZE, GRID_SIZE)
-        kwargs['pivot'] = (-GRID_SIZE, -GRID_SIZE)
+        kwargs['pos'] = kwargs['parent'].size / 2 + Point2D(g_gridSize, g_gridSize)
+        kwargs['pivot'] = (-g_gridSize, -g_gridSize)
         super(WinCounter, self).__init__(*args, **kwargs)
 
         self.__count = 0
@@ -211,14 +213,14 @@ class Player(avg.DivNode):
 
         self.__node = avg.DivNode(parent=self, pivot=(0, 0))
         self.__body = avg.CircleNode(parent=self.__node, color=self._color)
-        avg.LineNode(parent=self.__node, pos1=(-GRID_SIZE * 2, 0), pos2=(GRID_SIZE * 2, 0),
+        avg.LineNode(parent=self.__node, pos1=(-g_gridSize * 2, 0), pos2=(g_gridSize * 2, 0),
                 color=self._color, strokewidth=3)
-        avg.LineNode(parent=self.__node, pos1=(0, -GRID_SIZE * 2), pos2=(0, GRID_SIZE * 2),
+        avg.LineNode(parent=self.__node, pos1=(0, -g_gridSize * 2), pos2=(0, g_gridSize * 2),
                 color=self._color, strokewidth=3)
 
         self.__nodeAnim = avg.ContinuousAnim(self.__node, 'angle', 0, 3.14)
         self.__explodeAnim = avg.ParallelAnim(
-                (avg.LinearAnim(self.__body, 'r', 200, self.__body.r, GRID_SIZE * 6),
+                (avg.LinearAnim(self.__body, 'r', 200, self.__body.r, g_gridSize * 6),
                  avg.LinearAnim(self.__body, 'opacity', 200, 1, 0)),
                 None, self.__remove)
 
@@ -229,7 +231,7 @@ class Player(avg.DivNode):
     def _setReady(self):
         self.__node.pos = self.__startPos
         self.__heading = Point2D(self.__startHeading)
-        self.__body.r = GRID_SIZE
+        self.__body.r = g_gridSize
         self.__body.strokewidth = 1
         self.__body.opacity = 1
         self.__nodeAnim.start()
@@ -362,8 +364,8 @@ class RealPlayer(Player):
 
 class IdlePlayer(Player):
     def __init__(self, color, demoData, *args, **kwargs):
-        startPos = Point2D(demoData['startPos']) * GRID_SIZE
-        super(IdlePlayer, self).__init__(color, startPos, (0, -GRID_SIZE),
+        startPos = Point2D(demoData['startPos']) * g_gridSize
+        super(IdlePlayer, self).__init__(color, startPos, (0, -g_gridSize),
                 *args, **kwargs)
         self.__route = demoData['route']
 
@@ -401,17 +403,17 @@ class IdlePlayer(Player):
 
 class DragItem(avg.DivNode):
     def __init__(self, iconNode, *args, **kwargs):
-        self._posOffset = Point2D(GRID_SIZE * 8, GRID_SIZE * 8)
+        self._posOffset = Point2D(g_gridSize * 8, g_gridSize * 8)
         w, h = kwargs['parent'].size
         kwargs['size'] = self._posOffset * 2
         super(DragItem, self).__init__(*args, **kwargs)
 
-        self.__minPosX = int(-self._posOffset.x) + GRID_SIZE
+        self.__minPosX = int(-self._posOffset.x) + g_gridSize
         self.__maxPosX = int(w - self._posOffset.x)
-        self.__posX = range(self.__minPosX, self.__maxPosX, GRID_SIZE)
-        self.__minPosY = int(-self._posOffset.y) + GRID_SIZE
+        self.__posX = range(self.__minPosX, self.__maxPosX, g_gridSize)
+        self.__minPosY = int(-self._posOffset.y) + g_gridSize
         self.__maxPosY = int(h - self._posOffset.y)
-        self.__posY = range(self.__minPosY, self.__maxPosY, GRID_SIZE)
+        self.__posY = range(self.__minPosY, self.__maxPosY, g_gridSize)
 
         self.__node = iconNode
         self.__node.opacity = 0
@@ -436,7 +438,7 @@ class DragItem(avg.DivNode):
         if not self.__cursorID is None:
             return False # no collision when dragging
         dist = self.pos + self._posOffset - pos
-        if abs(dist.x) <= GRID_SIZE and abs(dist.y) <= GRID_SIZE:
+        if abs(dist.x) <= g_gridSize and abs(dist.y) <= g_gridSize:
             return True
         return False
 
@@ -464,8 +466,8 @@ class DragItem(avg.DivNode):
     def __onMotion(self, event):
         if not self.__cursorID == event.cursorid:
             return False
-        pos = (event.pos - self.__dragOffset) / GRID_SIZE
-        pos = Point2D(round(pos.x), round(pos.y)) * GRID_SIZE
+        pos = (event.pos - self.__dragOffset) / g_gridSize
+        pos = Point2D(round(pos.x), round(pos.y)) * g_gridSize
         if self.__minPosX <= pos.x and pos.x < self.__maxPosX \
                 and self.__minPosY <= pos.y and pos.y < self.__maxPosY:
             self.pos = pos
@@ -474,7 +476,7 @@ class DragItem(avg.DivNode):
 
 class Shield(DragItem):
     def __init__(self, *args, **kwargs):
-        icon = avg.CircleNode(r=GRID_SIZE * 2)
+        icon = avg.CircleNode(r=g_gridSize * 2)
         super(Shield, self).__init__(icon, *args, **kwargs)
         icon.pos = self._posOffset
 
@@ -501,7 +503,7 @@ class Shield(DragItem):
 
 class Blocker(DragItem):
     def __init__(self, *args, **kwargs):
-        icon = avg.RectNode(size=(GRID_SIZE * 3, GRID_SIZE * 3),
+        icon = avg.RectNode(size=(g_gridSize * 3, g_gridSize * 3),
                 color='FF0000', fillcolor='FF0000')
         super(Blocker, self).__init__(icon, *args, **kwargs)
         icon.pos = self._posOffset - icon.size / 2
@@ -511,7 +513,7 @@ class BgAnim(avg.DivNode):
     def __init__(self, *args, **kwargs):
         size = kwargs['parent'].size
         self.__maxX, self.__maxY = size
-        kwargs['pos'] = size / 2
+        kwargs['pos'] = (int(size.x / 2), int(size.y / 2))
         kwargs['opacity'] = 0.2
         super(BgAnim, self).__init__(*args, **kwargs)
 
@@ -557,20 +559,25 @@ class MtTron(AVGApp):
 
     def init(self):
         self._parentNode.mediadir = getMediaDir(__file__)
-        screenSize = self._parentNode.size
-        battlegroundPos = Point2D(BORDER_WIDTH, BORDER_WIDTH)
+
+        global g_gridSize
+        screenSize = g_player.getRootNode().size
+        g_gridSize = int(min(floor(screenSize.x / BASE_GRIDSIZE.x),
+                floor(screenSize.y / BASE_GRIDSIZE.y)))
+        borderWidth = g_gridSize * BASE_BORDERWIDTH
         battlegroundSize = Point2D(
-                floor((screenSize.x - BORDER_WIDTH * 2) / GRID_SIZE) * GRID_SIZE,
-                floor((screenSize.y - BORDER_WIDTH * 2) / GRID_SIZE) * GRID_SIZE)
+                floor((screenSize.x - borderWidth * 2) / g_gridSize) * g_gridSize,
+                floor((screenSize.y - borderWidth * 2) / g_gridSize) * g_gridSize)
+        borderWidth = (screenSize - battlegroundSize) / 2.0
 
         avg.RectNode(parent=self._parentNode, size=screenSize,
                 opacity=0, fillcolor='B00000', fillopacity=1)
         avg.RectNode(parent=self._parentNode,
-                pos=battlegroundPos, size=battlegroundSize,
+                pos=borderWidth, size=battlegroundSize,
                 opacity=0, fillcolor='000000', fillopacity=1)
 
         battleground = avg.DivNode(parent=self._parentNode,
-                pos=battlegroundPos, size=battlegroundSize, crop=True)
+                pos=borderWidth, size=battlegroundSize, crop=True)
 
         self.__bgAnims = []
         for i in xrange(4):
@@ -585,37 +592,37 @@ class MtTron(AVGApp):
         self.__shield = Shield(parent=self.__ctrlDiv)
         self.__blocker = Blocker(parent=self.__ctrlDiv)
 
-        ctrlSize = Point2D(GRID_SIZE * 42, GRID_SIZE * 42)
-        playerPos = ctrlSize.x + GRID_SIZE * 2
+        ctrlSize = Point2D(g_gridSize * 42, g_gridSize * 42)
+        playerPos = ctrlSize.x + g_gridSize * 2
         self.__controllers = []
         # 1st
         p = RealPlayer(PLAYER_COLORS[0],
-                (playerPos, playerPos), (GRID_SIZE, 0),
+                (playerPos, playerPos), (g_gridSize, 0),
                 self.__winsDiv, ctrlSize, pi, parent=self.__gameDiv)
         self.__controllers.append(Controller(p, self.joinPlayer,
-                parent=self.__ctrlDiv, pos=(GRID_SIZE, GRID_SIZE), size=ctrlSize,
+                parent=self.__ctrlDiv, pos=(g_gridSize, g_gridSize), size=ctrlSize,
                 angle=0))
         # 2nd
         p = RealPlayer(PLAYER_COLORS[1],
-                (self.__ctrlDiv.size.x - playerPos, playerPos), (-GRID_SIZE, 0),
+                (self.__ctrlDiv.size.x - playerPos, playerPos), (-g_gridSize, 0),
                 self.__winsDiv, ctrlSize, -pi / 2, parent=self.__gameDiv)
         self.__controllers.append(Controller(p, self.joinPlayer,
-                parent=self.__ctrlDiv, pos=(self.__ctrlDiv.size.x - GRID_SIZE, GRID_SIZE),
+                parent=self.__ctrlDiv, pos=(self.__ctrlDiv.size.x - g_gridSize, g_gridSize),
                 size=ctrlSize, angle=pi / 2))
         # 3rd
         p = RealPlayer(PLAYER_COLORS[2],
-                (playerPos, self.__ctrlDiv.size.y - playerPos), (GRID_SIZE, 0),
+                (playerPos, self.__ctrlDiv.size.y - playerPos), (g_gridSize, 0),
                 self.__winsDiv, ctrlSize, pi / 2, parent=self.__gameDiv)
         self.__controllers.append(Controller(p, self.joinPlayer,
-                parent=self.__ctrlDiv, pos=(GRID_SIZE, self.__ctrlDiv.size.y - GRID_SIZE),
+                parent=self.__ctrlDiv, pos=(g_gridSize, self.__ctrlDiv.size.y - g_gridSize),
                 size=ctrlSize, angle=-pi / 2))
         # 4th
         p = RealPlayer(PLAYER_COLORS[3],
                 (self.__ctrlDiv.size.x - playerPos, self.__ctrlDiv.size.y - playerPos),
-                (-GRID_SIZE, 0), self.__winsDiv, ctrlSize, 0, parent=self.__gameDiv)
+                (-g_gridSize, 0), self.__winsDiv, ctrlSize, 0, parent=self.__gameDiv)
         self.__controllers.append(Controller(p, self.joinPlayer,
                 parent=self.__ctrlDiv,
-                pos=(self.__ctrlDiv.size.x - GRID_SIZE, self.__ctrlDiv.size.y - GRID_SIZE),
+                pos=(self.__ctrlDiv.size.x - g_gridSize, self.__ctrlDiv.size.y - g_gridSize),
                 size=ctrlSize, angle=pi))
 
         self.__startButton = Button(self.__ctrlDiv, 'FF0000', 'O', self.__start)
@@ -742,9 +749,9 @@ class MtTron(AVGApp):
         fp.close()
 
         idleDiv1 = avg.DivNode(parent=parent,
-                pos=parent.size / 2 - Point2D(0, GRID_SIZE * 4))
+                pos=parent.size / 2 - Point2D(0, g_gridSize * 4))
         idleDiv2 = avg.DivNode(parent=parent,
-                pos=parent.size / 2 + Point2D(0, GRID_SIZE * 4),
+                pos=parent.size / 2 + Point2D(0, g_gridSize * 4),
                 pivot=(0, 0), angle=pi)
         self.__idlePlayers = []
         for i in xrange(4):
